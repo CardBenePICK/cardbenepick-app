@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { path: 'chat', label: '챗봇', icon: MessageCircle },
   { path: 'wallet', label: '월렛', icon: Wallet },
-  { path: 'analysis', label: '분석', icon: LayoutGrid }, // 1. path: 'spending' -> 'analysis'
+  { path: 'analysis', label: '전체', icon: LayoutGrid }, // '분석' -> '전체'로 레이블 변경
 ];
 // --- [수정 완료] ---
 

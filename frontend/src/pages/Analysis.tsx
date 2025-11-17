@@ -1,21 +1,28 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { PieChart, CreditCard, BarChart2, Plus } from 'lucide-react';
+// 1. PieChart, CreditCard, BarChart2, Plus와 함께 'User' 아이콘을 가져옵니다.
+import { PieChart, CreditCard, BarChart2, Plus, User } from 'lucide-react';
 
-// --- [수정됨] ---
+// 2. '마이페이지' 항목을 배열의 맨 위에 추가합니다.
 const analysisMenuItems = [
+  {
+    title: "마이페이지",
+    description: "내 정보 및 로그아웃",
+    icon: User,
+    link: "/app/mypage", // 마이페이지 라우트
+  },
   {
     title: "소비패턴",
     description: "카테고리별 지출 분석",
     icon: PieChart,
-    link: "/app/analysis/detail", // 1. 'spending/detail' -> 'analysis/detail'
+    link: "/app/analysis/detail", 
   },
   {
     title: "카드별 이용실적",
     description: "보유 카드 실적 현황",
     icon: CreditCard,
-    link: "/app/performance", // 2. (요청대로) '/app/performance' 경로 유지
+    link: "/app/performance", 
   },
   // {
   //   title: "월별 리포트",
@@ -24,7 +31,6 @@ const analysisMenuItems = [
   //   link: "#",
   // },
 ];
-// --- [수정 완료] ---
 
 const Analysis = () => {
   const navigate = useNavigate();
@@ -33,7 +39,8 @@ const Analysis = () => {
     <div>
       {/* Header */}
       <div className="flex items-center p-4 border-b">
-        <h1 className="text-lg font-semibold flex-1 text-center">분석</h1>
+        {/* 3. 페이지 제목을 '분석'에서 '전체'로 변경합니다. */}
+        <h1 className="text-lg font-semibold flex-1 text-center">전체</h1>
       </div>
 
       {/* Content (3*n 버튼 메뉴) */}

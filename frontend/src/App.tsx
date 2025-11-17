@@ -14,6 +14,7 @@ import LinkMyData from "./pages/LinkMyData";
 import RegisterCards from "./pages/RegisterCards";
 import Wallet from "./pages/Wallet";
 import Chat from "./pages/Chat";
+import MyPage from "./pages/MyPage";
 
 // --- [수정됨] ---
 import Analysis from "./pages/Analysis";
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="wallet/verify" element={<VerifyCard />} />
             
             <Route path="analysis" element={<Analysis />} />
+            <Route path="mypage" element={<MyPage />} /> {/* 2. 마이페이지 라우트 추가 */}
             <Route path="analysis/detail" element={<SpendingDetail />} />
             <Route path="performance" element={<CardPerformance />} />
 
