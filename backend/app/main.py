@@ -1,4 +1,3 @@
-# init_db (테이블 자동 생성)와 api_router (API 엔드포인트)를 포함
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import init_db
@@ -6,17 +5,17 @@ from app.api.router import api_router
 # models.py를 import해야 init_db()가 테이블을 인식합니다.
 from app.db import models 
 
-# (1) DB 및 테이블 생성 (개발용)
-# 서버가 시작될 때 SQLModel이 DB에 테이블이 없으면 생성하도록 합니다.
-@app.on_event("startup")
-def on_startup():
-    init_db()
-
-# (2) FastAPI 앱 생성
+# (1) FastAPI 앱 생성 (순서 수정: @app.on_event 보다 먼저!)
 app = FastAPI(
     title="CardBenePICK API",
     version="0.1.0"
 )
+
+# (2) DB 및 테이블 생성 (개발용)
+# 서버가 시작될 때 SQLModel이 DB에 테이블이 없으면 생성하도록 합니다.
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 # (3) CORS 설정
 origins = [
