@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'; // [수정] useEffect 추가
-import { useNavigate, useLocation } from 'react-router-dom'; // [수정] useLocation 추가
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, User, Loader2, Cake, Users } from 'lucide-react'; // [수정] Smartphone 아이콘 제거
+import { ArrowLeft, User, Loader2, Cake, Users, Calendar as CalendarIcon } from 'lucide-react'; // [수정] CalendarIcon 추가
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -14,7 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// [제거] telecomOptions 제거
+// [추가] Popover, Calendar 및 날짜 포맷(date-fns) 임포트
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils"; // cn 유틸리티 임포트
 
 // 성별 옵션
 const genderOptions = [
@@ -24,21 +32,19 @@ const genderOptions = [
 
 const Register = () => {
   const navigate = useNavigate();
-  const location = useLocation(); // [추가]
+  const location = useLocation();
   const { toast } = useToast();
 
   const [name, setName] = useState('');
-  // [제거] const [telecom, setTelecom] = useState('');
-  const [birthDate, setBirthDate] = useState('');
+  const [birthDate, setBirthDate] = useState<Date | undefined>(undefined); // [수정] Date 타입으로 변경
   const [gender, setGender] = useState('');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // [추가] VerifyOtp 페이지에서 전달받은 state
   const telecom = location.state?.telecom;
 
-  // [추가] telecom 정보가 없으면(새로고침 등) 로그인 페이지로 리다이렉트
+  // telecom 정보가 없으면(새로고침 등) 로그인 페이지로 리다이렉트
   useEffect(() => {
     if (!telecom) {
       toast({
@@ -57,9 +63,9 @@ const Register = () => {
       toast({ title: "오류", description: "이름을 입력하세요.", variant: "destructive" });
       return;
     }
-    // [수정] telecom 유효성 검사는 useEffect가 처리하므로 여기선 제거 가능
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-       toast({ title: "오류", description: "생년월일을 YYYY-MM-DD 형식으로 입력하세요.", variant: "destructive" });
+    // [수정] Date 객체 유효성 검사
+    if (!birthDate) {
+       toast({ title: "오류", description: "생년월일을 선택하세요.", variant: "destructive" });
        return;
     }
     if (!gender) {
@@ -89,8 +95,8 @@ const Register = () => {
         },
         body: JSON.stringify({
           name: name,
-          telecom: telecom, // [수정] location.state에서 받은 telecom 값 사용
-          birth_date: birthDate,
+          telecom: telecom,
+          birth_date: format(birthDate, "yyyy-MM-dd"), // [수정] YYYY-MM-DD 형식으로 포맷
           gender: gender,
           agreed_terms: agreedTerms,
           agreed_privacy: agreedPrivacy
@@ -159,25 +165,40 @@ const Register = () => {
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
-
-            {/* [제거] 통신사 선택 UI 제거 */}
             
-            {/* 생년월일 입력 */}
+            {/* [수정] 생년월일 (달력) */}
             <div className="relative">
-              <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input 
-                type="text"
-                placeholder="생년월일 (YYYY-MM-DD)" 
-                className="pl-10 h-12" 
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                maxLength={10}
-              />
+              <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "pl-10 h-12 w-full justify-start text-left font-normal",
+                      !birthDate && "text-muted-foreground"
+                    )}
+                  >
+                    {birthDate ? format(birthDate, "yyyy-MM-dd") : <span>생년월일을 선택하세요</span>}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={birthDate}
+                    onSelect={setBirthDate}
+                    captionLayout="dropdown-buttons" // 년/월 쉽게 선택
+                    fromYear={1930} // 선택 가능 범위
+                    toYear={new Date().getFullYear()} // 선택 가능 범위
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* 성별 선택 */}
             <div className="relative">
-              <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
               <Select onValueChange={setGender} value={gender}>
                 <SelectTrigger className="pl-10 h-12">
                   <SelectValue placeholder="성별을 선택하세요" />
@@ -194,7 +215,6 @@ const Register = () => {
             
             {/* 약관 동의 */}
             <div className="space-y-4">
-              {/* ... (약관 동의 UI는 변경 없음) ... */}
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="terms-all" 
@@ -231,8 +251,7 @@ const Register = () => {
             <Button 
               type="submit"
               className="w-full btn-gradient h-11"
-              // [수정] telecom이 버튼 활성화 조건에서 빠짐 (state가 아님)
-              disabled={isLoading || !agreedTerms || !agreedPrivacy || !name || !birthDate || !gender}
+              disabled={isLoading || !agreedTerms || !agreedPrivacy || !name || !telecom || !birthDate || !gender}
             >
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '가입 완료'}
             </Button>

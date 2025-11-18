@@ -1,5 +1,7 @@
 # API 입/출력용 Pydantic 모델
 from sqlmodel import SQLModel
+from datetime import date
+from app.db.models import Gender
 
 class SendOtpRequest(SQLModel):
     phone_number: str
@@ -16,7 +18,9 @@ class VerifyOtpResponse(SQLModel):
 class RegisterRequest(SQLModel):
     """회원가입 완료 요청"""
     name: str
-    telecom: str  # <-- [추가] 통신사 필드
+    telecom: str
+    birth_date: date  # <-- [추가]
+    gender: Gender    # <-- [추가]
     agreed_terms: bool
     agreed_privacy: bool
 
