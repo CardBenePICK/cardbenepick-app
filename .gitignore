@@ -104,3 +104,9 @@ venv/
 
 # Backend .env
 /backend/.env
+
+# Python Caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
