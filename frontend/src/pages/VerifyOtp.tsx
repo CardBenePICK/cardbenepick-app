@@ -91,7 +91,7 @@ const VerifyOtp = () => {
               <br/>
               (개발: 백엔드 콘솔 확인)
             </CardDescription>
-          </Header>
+          </CardHeader>
           <CardContent className="flex flex-col items-center space-y-6">
             <InputOTP 
               maxLength={6} 
