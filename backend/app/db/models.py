@@ -1,9 +1,13 @@
-# DB 테이블(`user_master`, `user_asset`) 정의
+# DB 테이블(`user_master`, `user_assets`) 정의
 import enum
 from typing import Optional
-from sqlmodel import SQLModel, Field, Column, Enum as SQLAEnum
+from decimal import Decimal
 from datetime import datetime, date
+from sqlmodel import SQLModel, Field, Column, Enum as SQLAEnum, text
 
+# 3. SQLAlchemy에서 필요한 타입들 임포트
+from sqlalchemy import CHAR, BINARY, VARBINARY, ForeignKey, DateTime
+from sqlalchemy.dialects.mysql import BIGINT, DECIMAL as SQLDecimal
 # --- Enums (DB 스키마와 동일하게) ---
 class Gender(str, enum.Enum):
     M = "M"
@@ -27,36 +31,85 @@ class AssetType(str, enum.Enum):
 class UserMaster(SQLModel, table=True):
     __tablename__ = "user_master"
 
-    user_id: Optional[int] = Field(default=None, primary_key=True)
-    phone_number: str = Field(max_length=20, unique=True, index=True) # 필수
-    user_name: Optional[str] = Field(max_length=50, default=None) # 회원가입 시 입력
-
-    # [수정됨] 회원가입 시 받지 않는 정보는 모두 Optional(nullable=True)로 변경
-    uuid: Optional[bytes] = Field(default=None, unique=True)
-    ci_hash: Optional[bytes] = Field(default=None, unique=True)
-    di_hash: Optional[bytes] = Field(default=None, unique=True)
+    # [FIXED] primary_key를 Field()가 아닌 Column()으로 이동
+    user_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    )
+    
+    # [FIXED] unique를 Field()가 아닌 Column()으로 이동
+    uuid: Optional[bytes] = Field(default=None, sa_column=Column(BINARY(16), unique=True))
+    user_name: Optional[str] = Field(max_length=50, default=None)
     birth_date: Optional[date] = Field(default=None)
     gender: Optional[Gender] = Field(default=None, sa_column=Column(SQLAEnum(Gender)))
     telecom: Optional[str] = Field(default=None, max_length=20)
     
-    status: UserStatus = Field(default=UserStatus.active, sa_column=Column(SQLAEnum(UserStatus), index=True))
+    # [FIXED] unique를 Field()가 아닌 Column()으로 이동
+    ci_hash: Optional[bytes] = Field(default=None, sa_column=Column(VARBINARY(32), unique=True))
+    di_hash: Optional[bytes] = Field(default=None, sa_column=Column(VARBINARY(32), unique=True))
+    
+    # [OK] sa_column이 없으므로 Field()에 unique, index 설정 가능
+    phone_number: str = Field(max_length=20, unique=True, index=True, nullable=False)
+
+    status: UserStatus = Field(
+        default=UserStatus.active, 
+        sa_column=Column(SQLAEnum(UserStatus), index=True, nullable=False, server_default=UserStatus.active.value)
+    )
     last_login_at: Optional[datetime] = Field(default=None)
     
-    # default_factory를 사용하면 Python 코드 실행 시점이 아닌, DB에 삽입될 때 기본값 생성
-    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow, nullable=False, sa_column_kwargs={"onupdate": datetime.utcnow})
+    # [REVISED] sa_column_kwargs 대신 Column으로 통일
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, # Pydantic 모델을 위한 기본값
+        sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow, # Pydantic 모델을 위한 기본값
+        sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"))
+    )
 
 class UserAsset(SQLModel, table=True):
-    __tablename__ = "user_asset"
+    __tablename__ = "user_assets"
 
-    asset_id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="user_master.user_id", index=True)
-    asset_type: AssetType = Field(sa_column=Column(SQLAEnum(AssetType), index=True))
-    institution_name: str = Field(max_length=100)
-    external_account_id: str = Field(max_length=100, index=True)
-    external_account_name: Optional[str] = Field(max_length=200, default=None)
-    currency: str = Field(default="KRW", max_length=3)
-    balance: float = Field(default=0.0) # DECIMAL은 float으로 매핑
+    # [FIXED] primary_key를 Field()가 아닌 Column()으로 이동
+    asset_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    )
     
-    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow, nullable=False, sa_column_kwargs={"onupdate": datetime.utcnow})
+    # [FIXED] foreign_key와 index를 Field()가 아닌 Column()으로 이동
+    user_id: int = Field(
+        sa_column=Column(
+            BIGINT(unsigned=True), 
+            ForeignKey("user_master.user_id"), 
+            index=True, 
+            nullable=False
+        )
+    )
+    
+    asset_type: AssetType = Field(sa_column=Column(SQLAEnum(AssetType), index=True, nullable=False))
+    institution_name: str = Field(max_length=100, nullable=False)
+    
+    # [OK] sa_column이 없으므로 Field()에 index 설정 가능
+    external_account_id: str = Field(max_length=100, index=True, nullable=False)
+    external_account_name: Optional[str] = Field(max_length=200, default=None)
+
+    # [REVISED] nullable=False 중복 제거 (Column 내부에만 명시)
+    currency: str = Field(
+        default="KRW", 
+        sa_column=Column(CHAR(3), nullable=False, server_default="KRW")
+    )
+    
+    balance: Decimal = Field(
+        default=Decimal("0.00"), 
+        sa_column=Column(SQLDecimal(18, 2), nullable=False, server_default=text("'0.00'"))
+    )
+
+    # [REVISED] sa_column_kwargs 대신 Column으로 통일
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, # Pydantic 모델을 위한 기본값
+        sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow, # Pydantic 모델을 위한 기본값
+        sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"))
+    )

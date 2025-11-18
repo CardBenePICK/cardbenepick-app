@@ -3,9 +3,9 @@ import random
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 from datetime import datetime
-
+import uuid as uuid_pkg  # <-- 2. uuid_pkg 추가
 from app.api import deps
-from app.db.models import UserMaster, UserStatus
+from app.db.models import UserMaster, UserStatus, Gender
 from app.core.security import create_access_token, create_registration_token
 from app.schemas.token import (
     SendOtpRequest, VerifyOtpRequest, VerifyOtpResponse, 
@@ -112,10 +112,20 @@ def complete_registration(
 
     # (5) --- [핵심] user_master에 유저 생성 ---
     new_user = UserMaster(
-        phone_number=phone_number,
-        user_name=request.name,
-        status=UserStatus.active,
-        # (uuid, ci, di, birth 등은 NULL로 저장됨)
+    phone_number=phone_number,
+    user_name=request.name,
+    status=UserStatus.active,
+
+    # --- [추가된 더미 데이터] ---
+    # (DB 스키마가 NOT NULL 컬럼을 요구하므로 임시 값을 채웁니다)
+    uuid=uuid_pkg.uuid4().bytes,
+    birth_date=date(1900, 1, 1), # 임시 생년월일
+    gender=Gender.M,            # 임시 성별 (M 또는 F)
+    telecom="SKT",              # 임시 통신사
+    ci_hash=f"dummy-ci-{phone_number}".encode('utf-8').ljust(32, b'\0'), # 32바이트 더미
+    di_hash=f"dummy-di-{phone_number}".encode('utf-8').ljust(32, b'\0'), # 32바이트 더미
+    created_at=datetime.utcnow(), # `text("...")`를 썼으므로 모델에서 제거해도 되나, 명시적으로 추가
+    updated_at=datetime.utcnow()
     )
     db.add(new_user)
     db.commit()
