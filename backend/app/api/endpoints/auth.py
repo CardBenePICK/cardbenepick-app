@@ -2,7 +2,7 @@
 import random
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
-from datetime import datetime
+from datetime import datetime, date
 import uuid as uuid_pkg  # <-- 2. uuid_pkg 추가
 from app.api import deps
 from app.db.models import UserMaster, UserStatus, Gender

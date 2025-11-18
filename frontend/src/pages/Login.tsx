@@ -55,6 +55,10 @@ const Login = () => {
     }
   };
 
+  const handleTryout = () => {
+    navigate('/survey'); // 설문조사 페이지로 이동
+  };
+
   return (
     <div className="app-container">
       {/* Header */}
@@ -96,8 +100,32 @@ const Login = () => {
               className="w-full btn-gradient h-11"
               disabled={isLoading} // (10) 로딩 상태
             >
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '다음'}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '인증번호 발송'}
             </Button>
+
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                또는
+              </span>
+            </div>
+
+            <Button 
+              type="button" 
+              variant="outline"
+              className="w-full h-11"
+              onClick={handleTryout}
+            >
+              회원가입 없이 체험하기
+            </Button>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                이미 계정이 있으신가요?
+              </p>
+              <p className="text-xs text-muted-foreground">
+                휴대폰 번호로 로그인 및 회원가입이 진행됩니다.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </form>

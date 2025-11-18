@@ -1,4 +1,4 @@
-// `POST /api/auth/verify-otp`를 호출하고, 응답에 따라 분기 처리
+//`POST /api/auth/verify-otp`를 호출하고, 응답에 따라 분기 처리
 import { useState } from 'react'; // (1) useState 추가
 import { useNavigate, useLocation } from 'react-router-dom'; // (2) useLocation 추가
 import { Button } from '@/components/ui/button';
