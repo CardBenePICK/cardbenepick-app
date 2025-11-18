@@ -99,3 +99,8 @@ Thumbs.db
 # --- Uploaded Files ---
 uploaded_files/
 
+# Python Virtual Environment
+venv/
+
+# Backend .env
+/backend/.env
