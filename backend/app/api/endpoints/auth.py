@@ -121,7 +121,7 @@ def complete_registration(
     uuid=uuid_pkg.uuid4().bytes,
     birth_date=date(1900, 1, 1), # 임시 생년월일
     gender=Gender.M,            # 임시 성별 (M 또는 F)
-    telecom="SKT",              # 임시 통신사
+    telecom=request.telecom,    # <-- [수정] 요청받은 값으로 변경
     ci_hash=f"dummy-ci-{phone_number}".encode('utf-8').ljust(32, b'\0'), # 32바이트 더미
     di_hash=f"dummy-di-{phone_number}".encode('utf-8').ljust(32, b'\0'), # 32바이트 더미
     created_at=datetime.utcnow(), # `text("...")`를 썼으므로 모델에서 제거해도 되나, 명시적으로 추가

@@ -16,6 +16,7 @@ class VerifyOtpResponse(SQLModel):
 class RegisterRequest(SQLModel):
     """회원가입 완료 요청"""
     name: str
+    telecom: str  # <-- [추가] 통신사 필드
     agreed_terms: bool
     agreed_privacy: bool
 

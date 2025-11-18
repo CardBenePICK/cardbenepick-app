@@ -1,25 +1,55 @@
-// `POST /api/auth/complete-registration`를 호출하여 `user_master`에 사용자를 저장
-import { useState } from 'react'; // (1) useState 추가
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react'; // [수정] useEffect 추가
+import { useNavigate, useLocation } from 'react-router-dom'; // [수정] useLocation 추가
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, User, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast'; // (2) useToast 추가
+import { ArrowLeft, User, Loader2, Cake, Users } from 'lucide-react'; // [수정] Smartphone 아이콘 제거
+import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+// [제거] telecomOptions 제거
+
+// 성별 옵션
+const genderOptions = [
+  { value: "M", label: "남성" },
+  { value: "F", label: "여성" },
+];
 
 const Register = () => {
   const navigate = useNavigate();
-  const { toast } = useToast(); // (3) toast 훅 사용
+  const location = useLocation(); // [추가]
+  const { toast } = useToast();
 
-  // (4) 상태 변수 추가
   const [name, setName] = useState('');
+  // [제거] const [telecom, setTelecom] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [gender, setGender] = useState('');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // (5) API 호출 함수
+  // [추가] VerifyOtp 페이지에서 전달받은 state
+  const telecom = location.state?.telecom;
+
+  // [추가] telecom 정보가 없으면(새로고침 등) 로그인 페이지로 리다이렉트
+  useEffect(() => {
+    if (!telecom) {
+      toast({
+        title: "세션 오류",
+        description: "인증 정보가 유실되었습니다. 로그인부터 다시 시도해주세요.",
+        variant: "destructive",
+      });
+      navigate('/login');
+    }
+  }, [telecom, navigate, toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -27,12 +57,20 @@ const Register = () => {
       toast({ title: "오류", description: "이름을 입력하세요.", variant: "destructive" });
       return;
     }
+    // [수정] telecom 유효성 검사는 useEffect가 처리하므로 여기선 제거 가능
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+       toast({ title: "오류", description: "생년월일을 YYYY-MM-DD 형식으로 입력하세요.", variant: "destructive" });
+       return;
+    }
+    if (!gender) {
+       toast({ title: "오류", description: "성별을 선택하세요.", variant: "destructive" });
+       return;
+    }
     if (!agreedTerms || !agreedPrivacy) {
       toast({ title: "오류", description: "필수 약관에 모두 동의해야 합니다.", variant: "destructive" });
       return;
     }
 
-    // (6) VerifyOtp에서 저장한 임시 토큰 가져오기
     const token = localStorage.getItem('token');
     if (!token) {
       toast({ title: "인증 오류", description: "인증 세션이 만료되었습니다. 로그인부터 다시 시도하세요.", variant: "destructive" });
@@ -47,28 +85,34 @@ const Register = () => {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // (7) [핵심] 임시 토큰을 헤더에 전송
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           name: name,
+          telecom: telecom, // [수정] location.state에서 받은 telecom 값 사용
+          birth_date: birthDate,
+          gender: gender,
           agreed_terms: agreedTerms,
           agreed_privacy: agreedPrivacy
         })
       });
-
-      const data = await response.json();
-
+      
       if (!response.ok) {
-        throw new Error(data.detail || '회원가입에 실패했습니다.');
+        const errorText = await response.text();
+        let errorDetail = errorText;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorDetail = errorJson.detail || errorText;
+        } catch (e) {
+          // JSON 파싱 실패
+        }
+        throw new Error(errorDetail || '회원가입에 실패했습니다.');
       }
 
-      // (8) [핵심] 회원가입 성공 시, *새로운* 정식 로그인 토큰을 받아 덮어쓰기
+      const data = await response.json();
       localStorage.setItem('token', data.access_token);
-      localStorage.setItem('userLoggedIn', 'true'); // (9) 로그인 상태로 변경
-
+      localStorage.setItem('userLoggedIn', 'true');
       toast({ title: "회원가입 성공", description: "CardBenePICK에 오신 것을 환영합니다!" });
-
-      // (10) 다음 단계인 마이데이터 연동 페이지로 이동
       navigate('/link-mydata');
 
     } catch (error: any) {
@@ -86,7 +130,7 @@ const Register = () => {
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => navigate('/verify-otp')} // (11) 뒤로가기
+          onClick={() => navigate('/verify-otp')}
           className="mr-3"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -100,7 +144,7 @@ const Register = () => {
           <CardHeader className="text-center">
             <CardTitle className="text-xl">정보 입력</CardTitle>
             <CardDescription>
-              서비스 이용을 위해 이름과 약관 동의가 필요합니다.
+              서비스 이용을 위해 추가 정보를 입력해주세요.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -111,13 +155,46 @@ const Register = () => {
                 type="text" 
                 placeholder="이름 (예: 홍길동)" 
                 className="pl-10 h-12" 
-                value={name} // (12) value/onChange 바인딩
+                value={name}
                 onChange={(e) => setName(e.target.value)}
               />
+            </div>
+
+            {/* [제거] 통신사 선택 UI 제거 */}
+            
+            {/* 생년월일 입력 */}
+            <div className="relative">
+              <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input 
+                type="text"
+                placeholder="생년월일 (YYYY-MM-DD)" 
+                className="pl-10 h-12" 
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+                maxLength={10}
+              />
+            </div>
+
+            {/* 성별 선택 */}
+            <div className="relative">
+              <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Select onValueChange={setGender} value={gender}>
+                <SelectTrigger className="pl-10 h-12">
+                  <SelectValue placeholder="성별을 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  {genderOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             {/* 약관 동의 */}
             <div className="space-y-4">
+              {/* ... (약관 동의 UI는 변경 없음) ... */}
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="terms-all" 
@@ -126,7 +203,7 @@ const Register = () => {
                     setAgreedTerms(isChecked);
                     setAgreedPrivacy(isChecked);
                   }}
-                  checked={agreedTerms && agreedPrivacy} // (13) 전체 동의
+                  checked={agreedTerms && agreedPrivacy}
                 />
                 <Label htmlFor="terms-all" className="font-semibold">전체 동의</Label>
               </div>
@@ -134,7 +211,7 @@ const Register = () => {
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="terms" 
-                  checked={agreedTerms} // (14) 개별 바인딩
+                  checked={agreedTerms}
                   onCheckedChange={(checked) => setAgreedTerms(checked === true)}
                 />
                 <Label htmlFor="terms">(필수) 이용약관 동의</Label>
@@ -143,7 +220,7 @@ const Register = () => {
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="privacy" 
-                  checked={agreedPrivacy} // (15) 개별 바인딩
+                  checked={agreedPrivacy}
                   onCheckedChange={(checked) => setAgreedPrivacy(checked === true)}
                 />
                 <Label htmlFor="privacy">(필수) 개인정보 처리방침 동의</Label>
@@ -152,9 +229,10 @@ const Register = () => {
             </div>
             
             <Button 
-              type="submit" // (16) type="submit"
+              type="submit"
               className="w-full btn-gradient h-11"
-              disabled={isLoading || !agreedTerms || !agreedPrivacy} // (17) 로딩 및 동의 여부
+              // [수정] telecom이 버튼 활성화 조건에서 빠짐 (state가 아님)
+              disabled={isLoading || !agreedTerms || !agreedPrivacy || !name || !birthDate || !gender}
             >
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '가입 완료'}
             </Button>
