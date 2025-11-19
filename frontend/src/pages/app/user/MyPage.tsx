@@ -37,6 +37,15 @@ const MyPage = () => {
 
   // --- 핸들러 함수들 ---
 
+  // 휴대폰 번호 포맷팅 함수 (01012341234 -> 010-1234-1234)
+  const formatPhoneNumber = (phoneNumber) => {
+    if (!phoneNumber) return '';
+    // 숫자만 남기고, 3자리-3~4자리-4자리 패턴으로 하이픈 추가
+    return phoneNumber
+      .replace(/[^0-9]/g, '') // 숫자가 아닌 문자 제거 (안전장치)
+      .replace(/^(\d{2,3})(\d{3,4})(\d{4})$/, '$1-$2-$3');
+  };
+
   const handleLogout = () => {
     logoutUser();
     clearAssets();
@@ -106,7 +115,10 @@ const MyPage = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             <InfoRow label="이름" value={user?.user_name} />
-            <InfoRow label="휴대폰 번호" value={user?.phone_number} />
+            <InfoRow 
+              label="휴대폰 번호" 
+              value={formatPhoneNumber(user?.phone_number)} 
+            />
             <InfoRow label="생년월일" value={user?.birth_date} />
             <InfoRow label="통신사" value={user?.telecom} />
           </CardContent>
