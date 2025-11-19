@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, User, Loader2, Cake, Users, Calendar as CalendarIcon } from 'lucide-react'; // [수정] CalendarIcon 추가
+import { ArrowLeft, User, Loader2, Cake, Users, Calendar as CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// [추가] Popover, Calendar 및 날짜 포맷(date-fns) 임포트
 import {
   Popover,
   PopoverContent,
@@ -22,9 +21,10 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils"; // cn 유틸리티 임포트
+import { cn } from "@/lib/utils";
+// [추가] Store 임포트
+import { useUserStore } from '@/store/useUserStore';
 
-// 성별 옵션
 const genderOptions = [
   { value: "M", label: "남성" },
   { value: "F", label: "여성" },
@@ -34,9 +34,12 @@ const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  
+  // [추가] Store Actions
+  const { login } = useUserStore();
 
   const [name, setName] = useState('');
-  const [birthDate, setBirthDate] = useState<Date | undefined>(undefined); // [수정] Date 타입으로 변경
+  const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
   const [gender, setGender] = useState('');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
@@ -44,7 +47,6 @@ const Register = () => {
 
   const telecom = location.state?.telecom;
 
-  // telecom 정보가 없으면(새로고침 등) 로그인 페이지로 리다이렉트
   useEffect(() => {
     if (!telecom) {
       toast({
@@ -59,27 +61,14 @@ const Register = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim()) {
-      toast({ title: "오류", description: "이름을 입력하세요.", variant: "destructive" });
-      return;
-    }
-    // [수정] Date 객체 유효성 검사
-    if (!birthDate) {
-       toast({ title: "오류", description: "생년월일을 선택하세요.", variant: "destructive" });
-       return;
-    }
-    if (!gender) {
-       toast({ title: "오류", description: "성별을 선택하세요.", variant: "destructive" });
-       return;
-    }
-    if (!agreedTerms || !agreedPrivacy) {
-      toast({ title: "오류", description: "필수 약관에 모두 동의해야 합니다.", variant: "destructive" });
+    if (!name.trim() || !birthDate || !gender || !agreedTerms || !agreedPrivacy) {
+      toast({ title: "오류", description: "모든 정보를 입력하고 약관에 동의해주세요.", variant: "destructive" });
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      toast({ title: "인증 오류", description: "인증 세션이 만료되었습니다. 로그인부터 다시 시도하세요.", variant: "destructive" });
+    const tempToken = localStorage.getItem('token');
+    if (!tempToken) {
+      toast({ title: "인증 오류", description: "인증 세션이 만료되었습니다.", variant: "destructive" });
       navigate('/login');
       return;
     }
@@ -91,12 +80,12 @@ const Register = () => {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${tempToken}`
         },
         body: JSON.stringify({
           name: name,
           telecom: telecom,
-          birth_date: format(birthDate, "yyyy-MM-dd"), // [수정] YYYY-MM-DD 형식으로 포맷
+          birth_date: format(birthDate, "yyyy-MM-dd"),
           gender: gender,
           agreed_terms: agreedTerms,
           agreed_privacy: agreedPrivacy
@@ -104,26 +93,33 @@ const Register = () => {
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        let errorDetail = errorText;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorDetail = errorJson.detail || errorText;
-        } catch (e) {
-          // JSON 파싱 실패
-        }
-        throw new Error(errorDetail || '회원가입에 실패했습니다.');
+        const errorText = await response.json();
+        throw new Error(errorText.detail || '회원가입에 실패했습니다.');
       }
 
       const data = await response.json();
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('userLoggedIn', 'true');
-      toast({ title: "회원가입 성공", description: "CardBenePICK에 오신 것을 환영합니다!" });
-      navigate('/link-mydata');
+      const accessToken = data.access_token;
+
+      // [수정] 회원가입 성공 후 바로 내 정보 조회 및 로그인 처리
+      const userResponse = await fetch('http://localhost:8000/api/users/me', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+
+      if (userResponse.ok) {
+          const userData = await userResponse.json();
+          
+          // Store 업데이트
+          login(accessToken, userData);
+          
+          toast({ title: "회원가입 성공", description: "CardBenePICK에 오신 것을 환영합니다!" });
+          navigate('/link-mydata');
+      } else {
+          throw new Error("회원 정보를 불러오는데 실패했습니다.");
+      }
 
     } catch (error: any) {
       console.error(error);
-      toast({ title: "오류", description: error.message || "서버와 통신할 수 없습니다.", variant: "destructive" });
+      toast({ title: "오류", description: error.message || "서버 오류", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -166,7 +162,7 @@ const Register = () => {
               />
             </div>
             
-            {/* [수정] 생년월일 (달력) */}
+            {/* 생년월일 (달력) */}
             <div className="relative">
               <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
               <Popover>
@@ -187,9 +183,9 @@ const Register = () => {
                     mode="single"
                     selected={birthDate}
                     onSelect={setBirthDate}
-                    captionLayout="dropdown-buttons" // 년/월 쉽게 선택
-                    fromYear={1930} // 선택 가능 범위
-                    toYear={new Date().getFullYear()} // 선택 가능 범위
+                    captionLayout="dropdown-buttons"
+                    fromYear={1930}
+                    toYear={new Date().getFullYear()}
                     initialFocus
                   />
                 </PopoverContent>

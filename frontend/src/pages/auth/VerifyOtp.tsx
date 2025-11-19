@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useToast } from '@/hooks/use-toast';
+// [추가] Store 임포트
+import { useUserStore } from '@/store/useUserStore';
 
 const VerifyOtp = () => {
   const navigate = useNavigate();
@@ -14,11 +16,12 @@ const VerifyOtp = () => {
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Login 페이지에서 전달받은 state
-  const phoneNumber = location.state?.phoneNumber;
-  const telecom = location.state?.telecom; // [추가] telecom 수신
+  // [추가] Store Actions
+  const { login } = useUserStore();
 
-  // phoneNumber가 없으면 로그인 페이지로 리다이렉트
+  const phoneNumber = location.state?.phoneNumber;
+  const telecom = location.state?.telecom;
+
   useEffect(() => {
     if (!phoneNumber) {
       toast({
@@ -46,24 +49,39 @@ const VerifyOtp = () => {
 
       const data = await response.json();
       
-      localStorage.setItem('token', data.token); // 임시 토큰 또는 정식 토큰 저장
-      toast({ title: "인증 성공", description: data.is_new_user ? "회원가입을 계속 진행합니다." : "로그인되었습니다." });
-
       if (data.is_new_user) {
-        // [수정] 신규 유저일 경우, telecom 정보를 Register 페이지로 전달
+        // 신규 유저 -> 회원가입 페이지로 이동 (임시 토큰 전달)
+        localStorage.setItem('token', data.token); 
         navigate('/register', { state: { telecom: telecom } });
       } else {
-        localStorage.setItem('userLoggedIn', 'true');
-        navigate('/app/wallet'); // 기존 유저는 메인 페이지로
+        // [수정] 기존 유저 -> 내 정보 조회 후 로그인 처리
+        const token = data.token;
+
+        // 내 정보 가져오기
+        const userResponse = await fetch('http://localhost:8000/api/users/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (userResponse.ok) {
+            const userData = await userResponse.json();
+            
+            // Store 업데이트 (localStorage 저장 포함)
+            login(token, userData);
+            
+            toast({ title: "로그인 성공", description: "환영합니다!" });
+            navigate('/app/wallet');
+        } else {
+            throw new Error("유저 정보를 불러오는데 실패했습니다.");
+        }
       }
 
     } catch (error: any) {
       console.error(error);
       toast({ title: "인증 실패", description: error.message || "서버 오류", variant: "destructive" });
+      setOtp('');
+    } finally {
       setIsLoading(false);
-      setOtp(''); // OTP 초기화
     }
-    // 'isLoading'은 성공 시 페이지 이동으로 자동 해제되므로 finally 불필요
   };
 
   return (
@@ -97,6 +115,7 @@ const VerifyOtp = () => {
               value={otp}
               onChange={(value) => setOtp(value)}
               onComplete={handleOtpComplete}
+              disabled={isLoading}
             >
               <InputOTPGroup>
                 <InputOTPSlot index={0} />
