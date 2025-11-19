@@ -2,43 +2,44 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-// 1. Banknote 아이콘을 CreditCard 아이콘으로 변경
 import { ArrowLeft, CreditCard, Loader2 } from 'lucide-react'; 
 import { useToast } from '@/hooks/use-toast';
 
-// 2. 가상 금융기관 목록을 '은행'에서 '카드사'로 변경
+// 요청하신 순서대로 카드사 목록 및 ID 정의
+// (백엔드의 COMPANY_MAPPING 키값과 일치해야 함)
 const mockCardCompanies = [
-  { id: 'kb', name: 'KB국민카드' },
   { id: 'shinhan', name: '신한카드' },
   { id: 'samsung', name: '삼성카드' },
-  { id: 'hyundai', name: '현대카드' },
+  { id: 'bc_baro', name: 'BC 바로카드' },
+  { id: 'ibk', name: 'IBK기업은행' },
+  { id: 'kb', name: 'KB국민카드' },
+  { id: 'mg', name: 'MG새마을금고' },
+  { id: 'nh', name: 'NH농협카드' },
   { id: 'lotte', name: '롯데카드' },
   { id: 'woori', name: '우리카드' },
   { id: 'hana', name: '하나카드' },
-  { id: 'nh', name: 'NH농협카드' },
-  { id: 'bc', name: 'BC카드' },
+  { id: 'hyundai', name: '현대카드' },
 ];
 
 const LinkMyData = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  // 3. 변수 이름 변경 (selectedBanks -> selectedCompanies)
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
 
   const handleCompanyClick = (companyId: string) => {
     setSelectedCompanies((prevSelected) =>
       prevSelected.includes(companyId)
-        ? prevSelected.filter((id) => id !== companyId) // 이미 있으면 제거
-        : [...prevSelected, companyId] // 없으면 추가
+        ? prevSelected.filter((id) => id !== companyId)
+        : [...prevSelected, companyId]
     );
   };
 
-  const handleLink = () => {
+  const handleLink = async () => {
     if (selectedCompanies.length === 0) {
       toast({
         title: "선택 필요",
-        description: "연동할 카드사를 하나 이상 선택해주세요.", // 4. 문구 수정
+        description: "연동할 카드사를 하나 이상 선택해주세요.",
         variant: "destructive",
       });
       return;
@@ -46,23 +47,58 @@ const LinkMyData = () => {
 
     setIsLoading(true);
 
-    toast({
-      title: "마이데이터 연동 중...",
-      description: `${selectedCompanies.length}개 카드사의 데이터를 연동합니다.`, // 5. 문구 수정
-    });
+    // 1. 저장된 토큰 가져오기
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      toast({
+        title: "인증 오류",
+        description: "로그인 정보가 없습니다. 다시 로그인해주세요.",
+        variant: "destructive",
+      });
+      navigate('/login');
+      return;
+    }
 
-    // 백엔드 API (POST /api/mydata/link) 호출을 시뮬레이션합니다.
-    // 이 API는 user_asset 테이블에 asset_type='account' 등으로 데이터를 추가합니다.
-    // (여기서는 카드사의 계정 정보를 연동한다고 가정)
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      // 2. 백엔드 API 호출 (POST /api/assets/link)
+      const response = await fetch('http://localhost:8000/api/assets/link', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // JWT 토큰 전송
+        },
+        body: JSON.stringify({ companies: selectedCompanies })
+      });
+
+      // 3. 응답 처리
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: '연동에 실패했습니다.' }));
+        // 404 등 백엔드에서 보낸 에러 메시지를 그대로 보여줌
+        throw new Error(errorData.detail);
+      }
+
+      const result = await response.json();
+      
+      // 4. 성공 처리
       toast({
         title: "연동 성공",
-        description: "마이데이터 연동이 완료되었습니다. '월렛' 탭에서 카드를 확인하거나 '마이페이지'에서 연동 기관을 관리하세요.",
+        description: `총 ${result.count}건의 거래 내역을 불러왔습니다.`,
       });
-      // '월렛' 탭으로 이동
+      
+      // 월렛 탭으로 이동
       navigate('/app/wallet');
-    }, 2000);
+
+    } catch (error: any) {
+      console.error("Link error:", error);
+      toast({
+        title: "연동 실패",
+        description: error.message || "알 수 없는 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -72,7 +108,7 @@ const LinkMyData = () => {
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => navigate('/register')} // 6. 이전 단계인 회원가입으로 이동
+          onClick={() => navigate('/register')}
           className="mr-3"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -92,7 +128,6 @@ const LinkMyData = () => {
           
           <CardContent className="space-y-6">
             <div className="grid grid-cols-3 gap-4">
-              {/* 7. mockBanks -> mockCardCompanies로 변경 */}
               {mockCardCompanies.map((company) => (
                 <Button
                   key={company.id}
@@ -100,7 +135,7 @@ const LinkMyData = () => {
                   className="flex-col h-20"
                   onClick={() => handleCompanyClick(company.id)}
                 >
-                  <CreditCard className="w-6 h-6 mb-1" /> {/* 8. 아이콘 변경 */}
+                  <CreditCard className="w-6 h-6 mb-1" />
                   <span className="text-xs">{company.name}</span>
                 </Button>
               ))}
@@ -112,8 +147,7 @@ const LinkMyData = () => {
               onClick={handleLink}
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {/* 9. 버튼 텍스트 수정 */}
-              {isLoading ? "연동 중..." : `선택한 ${selectedCompanies.length}개 카드사 연동하기`}
+              {isLoading ? "데이터 불러오는 중..." : `선택한 ${selectedCompanies.length}개 카드사 연동하기`}
             </Button>
 
             <Button 
