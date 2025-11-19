@@ -2,7 +2,7 @@
 
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session, select, SQLModel
 
 from app.api import deps
 from app.core.security import get_current_user_payload
@@ -46,9 +46,11 @@ def read_my_assets(
     연동된 내 카드(자산) 목록 조회
     """
     user_id = payload.get("user_id")
-    assets = db.exec(
-        select(UserAsset).where(UserAsset.user_id == user_id)
-    ).all()
+    statement = select(UserAsset).where(UserAsset.user_id == user_id)
+    assets = db.exec(statement).all()
+    # assets = db.exec(
+    #     select(UserAsset).where(UserAsset.user_id == user_id)
+    # ).all()
     return assets
 
 @router.delete("/{asset_id}")
