@@ -1,13 +1,13 @@
 # DB 테이블(`user_master`, `user_assets`) 정의
 import enum
-from typing import Optional
+from typing import Optional, List, Any
 from decimal import Decimal
 from datetime import datetime, date
 from sqlmodel import SQLModel, Field, Column, Enum as SQLAEnum, text
 
 # 3. SQLAlchemy에서 필요한 타입들 임포트
-from sqlalchemy import CHAR, BINARY, VARBINARY, ForeignKey, DateTime
-from sqlalchemy.dialects.mysql import BIGINT, DECIMAL as SQLDecimal
+from sqlalchemy import CHAR, BINARY, VARBINARY, ForeignKey, DateTime, JSON
+from sqlalchemy.dialects.mysql import BIGINT, DECIMAL as SQLDecimal, TINYINT
 # --- Enums (DB 스키마와 동일하게) ---
 class Gender(str, enum.Enum):
     M = "M"
@@ -28,6 +28,7 @@ class AssetType(str, enum.Enum):
 
 # --- Tables ---
 
+# --- UserMaster ---
 class UserMaster(SQLModel, table=True):
     __tablename__ = "user_master"
 
@@ -67,6 +68,7 @@ class UserMaster(SQLModel, table=True):
         sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"))
     )
 
+# --- UserAsset ---
 class UserAsset(SQLModel, table=True):
     __tablename__ = "user_assets"
 
@@ -112,4 +114,69 @@ class UserAsset(SQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=datetime.utcnow, # Pydantic 모델을 위한 기본값
         sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"))
+    )
+
+# --- CardMaster ---
+class CardMaster(SQLModel, table=True):
+    """
+    카드 상품 마스터 정보
+    """
+    __tablename__ = "card_master"
+
+    # card_id는 문자열(varchar(64))로 정의되어 있음
+    card_id: str = Field(primary_key=True, max_length=64)
+    
+    card_name: str = Field(max_length=128, nullable=False)
+    card_company: str = Field(max_length=64, nullable=False, index=True) # 인덱스 반영
+    
+    card_rank: Optional[int] = Field(default=None)
+    
+    # card_type: 0=신용, 1=체크 등 (TINYINT 매핑)
+    card_type: int = Field(sa_column=Column(TINYINT, nullable=False))
+    
+    domestic_year_cost: Optional[int] = Field(default=None)
+    abroad_year_cost: Optional[int] = Field(default=None)
+    previous_month_performance: Optional[int] = Field(default=None)
+    
+    created_at: Optional[datetime] = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+    )
+    
+    # JSON 타입 컬럼 매핑 (주의: MySQL에서 JSON 타입 지원 필요)
+    json_notice: Optional[Any] = Field(default=None, sa_column=Column(JSON))
+
+# --- CardTransaction ---
+class CardTransaction(SQLModel, table=True):
+    """
+    사용자 카드 결제 내역 (파티셔닝 적용된 테이블)
+    """
+    __tablename__ = "card_transactions"
+
+    # id와 transaction_date가 복합 PK로 설정되어 있으나,
+    # SQLModel에서 복합 PK 설정이 복잡할 수 있으므로 id를 primary key로 지정하고
+    # 실제 DB 제약조건은 DB 스키마를 따름.
+    id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    )
+    
+    transaction_id: str = Field(max_length=64, nullable=False) # UNIQUE KEY (with date)
+    
+    user_id: int = Field(
+        sa_column=Column(BIGINT(unsigned=True), nullable=False, index=True)
+    )
+    
+    card_id: str = Field(max_length=64, nullable=False, index=True)
+    card_company: str = Field(max_length=64, nullable=False, index=True)
+    
+    transaction_date: datetime = Field(nullable=False, primary_key=True) # 복합 PK의 일부이므로 PK 표시
+    
+    merchant_name: Optional[str] = Field(max_length=128, default=None, index=True)
+    amount_krw: int = Field(nullable=False)
+    installment_months: int = Field(default=0, nullable=False)
+    
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     )
