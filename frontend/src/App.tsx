@@ -6,29 +6,40 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // 레이아웃 및 페이지 임포트
 import MainLayout from "./components/MainLayout";
+// --- 루트 페이지 ---
 import Splash from "./pages/Splash";
-import Login from "./pages/Login";
-import VerifyOtp from "./pages/VerifyOtp";
-import Register from "./pages/Register";
-import LinkMyData from "./pages/LinkMyData";
-import RegisterCards from "./pages/RegisterCards";
-import Wallet from "./pages/Wallet";
-import Chat from "./pages/Chat";
-import MyPage from "./pages/MyPage";
-
-// --- [수정됨] ---
-import Analysis from "./pages/Analysis";
-import SpendingDetail from "./pages/SpendingDetail";
-import AnalysisLoading from "./pages/AnalysisLoading"; // 1. 새 분석 로딩 페이지 임포트
-// --- [수정 완료] ---
-
-import CardPerformance from "./pages/CardPerformance";
-import Survey from "./pages/Survey";
-import Recommendations from "./pages/Recommendations";
-import CardDetail from "./pages/CardDetail";
 import NotFound from "./pages/NotFound";
-import VerifyCard from "./pages/VerifyCard"; 
 
+// --- 1. 인증 (auth) ---
+import Login from "./pages/auth/Login";
+import VerifyOtp from "./pages/auth/VerifyOtp";
+import Register from "./pages/auth/Register";
+
+// --- 2. 온보딩 (onboarding) ---
+import LinkMyData from "./pages/onboarding/LinkMyData";
+import Survey from "./pages/onboarding/Survey";
+
+// --- 3. 메인 앱 (app) ---
+// 3a. 월렛 (app/wallet)
+import Wallet from "./pages/app/wallet/Wallet";
+import RegisterCards from "./pages/app/wallet/RegisterCards";
+import VerifyCard from "./pages/app/wallet/VerifyCard";
+
+// 3b. 챗봇 (app/chat)
+import Chat from "./pages/app/chat/Chat";
+
+// 3c. '전체' 메뉴 (app/all)
+import Analysis from "./pages/app/all/Analysis";
+import SpendingDetail from "./pages/app/all/SpendingDetail";
+import AnalysisLoading from "./pages/app/all/AnalysisLoading";
+import CardPerformance from "./pages/app/all/CardPerformance";
+
+// 3d. 사용자 (app/user)
+import MyPage from "./pages/app/user/MyPage";
+
+// --- 4. 공용 페이지 (shared) ---
+import Recommendations from "./pages/shared/Recommendations";
+import CardDetail from "./pages/shared/CardDetail";
 const queryClient = new QueryClient();
 
 const App = () => (

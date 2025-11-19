@@ -6,9 +6,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { SurveyResponse, BenefitCategory } from '../types';
-import { surveyQuestions, benefitCategoryNames } from '../data/mockData';
-import { matchUserGroup, getCardCombinations } from '../utils/cardRecommendation';
+import { SurveyResponse, BenefitCategory } from '../../types';
+import { surveyQuestions, benefitCategoryNames } from '../../data/mockData';
+import { matchUserGroup, getCardCombinations } from '../../utils/cardRecommendation';
 
 const Survey = () => {
   const navigate = useNavigate();

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, CreditCard, Gift, AlertCircle, Star, ExternalLink } from 'lucide-react';
-import { sampleCards, benefitCategoryNames, benefitCategoryColors } from '../data/mockData';
+import { sampleCards, benefitCategoryNames, benefitCategoryColors } from '../../data/mockData';
 
 const CardDetail = () => {
   const { cardId } = useParams();

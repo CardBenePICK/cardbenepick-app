@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2, Briefcase } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
-import { benefitCategoryNames } from '../data/mockData';
-import { SurveyResponse, UserGroup } from '../types';
+import { benefitCategoryNames } from '../../../data/mockData';
+import { SurveyResponse, UserGroup } from '../../../types';
 
 const AnalysisLoading = () => {
   const navigate = useNavigate();

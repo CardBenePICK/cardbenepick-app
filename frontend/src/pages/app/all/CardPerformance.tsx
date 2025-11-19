@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, CreditCard, CheckCircle, AlertCircle, Clock } from 'lucide-react';
-import { sampleCards } from '../data/mockData';
+import { sampleCards } from '../../../data/mockData';
 import { cn } from "@/lib/utils";
 
 const CardPerformance = () => {

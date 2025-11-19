@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Send, BarChart3, CreditCard, TrendingUp } from 'lucide-react';
-import { ChatMessage, PaymentQuery } from '../types';
-import { getCardRecommendations, inferCategoryFromMerchant } from '../utils/cardRecommendation';
-import { sampleCards } from '../data/mockData';
+import { ChatMessage, PaymentQuery } from '../../../types';
+import { getCardRecommendations, inferCategoryFromMerchant } from '../../../utils/cardRecommendation';
+import { sampleCards } from '../../../data/mockData';
 
 const Chat = () => {
   const navigate = useNavigate();

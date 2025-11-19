@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { analyzeSpendingPattern, convertToChartData } from '../utils/cardRecommendation';
-import { benefitCategoryNames, benefitCategoryColors } from '../data/mockData';
+import { analyzeSpendingPattern, convertToChartData } from '../../../utils/cardRecommendation';
+import { benefitCategoryNames, benefitCategoryColors } from '../../../data/mockData';
 
 const SpendingPattern = () => {
   const navigate = useNavigate();

@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, CreditCard, Users, TrendingUp, Star } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
-import { SurveyResponse, UserGroup, Card as CardType } from '../types';
-import { benefitCategoryNames } from '../data/mockData';
+import { SurveyResponse, UserGroup, Card as CardType } from '../../types';
+import { benefitCategoryNames } from '../../data/mockData';
 
 const Recommendations = () => {
   const navigate = useNavigate();

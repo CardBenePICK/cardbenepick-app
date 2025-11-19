@@ -13,9 +13,9 @@ app = FastAPI(
 
 # (2) DB 및 테이블 생성 (개발용)
 # 서버가 시작될 때 SQLModel이 DB에 테이블이 없으면 생성하도록 합니다.
-@app.on_event("startup")
-def on_startup():
-    init_db()
+# @app.on_event("startup")
+# def on_startup():
+#     init_db()
 
 # (3) CORS 설정
 origins = [
