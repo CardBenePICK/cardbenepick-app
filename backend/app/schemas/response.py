@@ -21,3 +21,4 @@ class AssetResponse(SQLModel):
     asset_type: AssetType
     created_at: datetime
     # card_master 정보를 조인해서 보여줄 경우를 위해 이미지 URL 등을 추가할 수도 있음
+    card_image_url: Optional[str] = None

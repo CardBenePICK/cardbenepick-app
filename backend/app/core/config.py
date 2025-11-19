@@ -1,4 +1,3 @@
-# `.env` 파일의 설정값을 읽어오기
 import os
 from dotenv import load_dotenv
 
@@ -12,3 +11,7 @@ ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24 * 7)) 
 # OTP 인증 후 회원가입을 완료하기 위한 임시 토큰 (10분)
 REGISTRATION_TOKEN_EXPIRE_MINUTES: int = 10
+
+# [추가] 카드 이미지 기본 경로
+# frontend/vite.config.ts에 설정된 포트(8080)를 반영
+IMAGE_BASE_URL: str = "http://localhost:8080/images"
