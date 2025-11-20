@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useCardStore } from '@/store/useCardStore'; // Store 임포트
+import { fetchWithAuth } from '@/lib/api';
 
 const VerifyCard = () => {
   const navigate = useNavigate();
