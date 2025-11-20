@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { fetchWithAuth } from '@/lib/api'; // [추가]
 // (신규) '내 지갑' 카드 목록
 // // - cards (등록된 카드 목록)
 // - fetchCards() (API 호출)
@@ -37,12 +38,8 @@ export const useCardStore = create<CardState>((set, get) => ({
     try {
       const token = localStorage.getItem('token');
       if (!token) return; // 로그아웃 상태면 패스
+      const response = await fetchWithAuth('http://localhost:8080/api/assets/');
 
-      const response = await fetch('http://localhost:8000/api/assets/', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
 
       if (!response.ok) throw new Error('자산 목록을 불러오는데 실패했습니다.');
       

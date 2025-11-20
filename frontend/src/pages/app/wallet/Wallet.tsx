@@ -22,6 +22,7 @@ import {
 import { Input } from '@/components/ui/input'; 
 import { Label } from '@/components/ui/label'; 
 import { cn } from '@/lib/utils';
+import { fetchWithAuth } from '@/lib/api'; // [추가]
 import { useCardStore } from '@/store/useCardStore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -120,19 +121,29 @@ const Wallet = () => {
     setPaymentStatus('activating'); 
 
     try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:8000/api/transactions/pay', {
+
+        // [수정] fetchWithAuth 사용 (토큰 헤더 자동 처리, 401 자동 처리)
+        const response = await fetchWithAuth('http://localhost:8000/api/transactions/pay', {
             method: 'POST',
-            headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-            },
             body: JSON.stringify({
                 user_asset_id: currentItem.originalAsset.asset_id,
                 amount: parseInt(amount),
                 merchant_name: merchant
             })
         });
+        // const token = localStorage.getItem('token');
+        // const response = await fetch('http://localhost:8000/api/transactions/pay', {
+        //     method: 'POST',
+        //     headers: {
+        //     'Content-Type': 'application/json',
+        //     'Authorization': `Bearer ${token}`
+        //     },
+        //     body: JSON.stringify({
+        //         user_asset_id: currentItem.originalAsset.asset_id,
+        //         amount: parseInt(amount),
+        //         merchant_name: merchant
+        //     })
+        // });
 
         if (!response.ok) throw new Error('승인 거절');
 
