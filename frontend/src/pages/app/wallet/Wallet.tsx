@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
-// --- [수정됨] ---
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-// --- [수정 완료] ---
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Plus, Loader2, CheckCircle } from 'lucide-react';
+import { Plus, Loader2, CheckCircle, CreditCard } from 'lucide-react';
 import {
   Carousel,
   CarouselContent,
@@ -23,83 +21,132 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
-import { sampleCards } from '@/data/mockData';
-
-// 목업 데이터 수정 (실제 카드만)
-const mockCards = [
-  { ...sampleCards[0], cardImage: '/images/13card.png' },
-  { ...sampleCards[1], cardImage: '/images/51card.png' },
-];
-
-// '카드 추가'용 더미 객체 생성
-const addCardSlot = {
-  id: 'add',
-  name: '카드 추가',
-  cardImage: '',
-};
-
-// 캐러셀에 표시할 실제 목록 (기존 카드 + '추가' 슬롯)
-const carouselItems = [...mockCards, addCardSlot];
+import { useCardStore, Asset } from '@/store/useCardStore'; // [변경] Store 임포트
+import { useToast } from '@/hooks/use-toast'; // [변경] Toast 임포트
 
 const Wallet = () => {
   const navigate = useNavigate();
-  // --- [수정됨] ---
-  const location = useLocation(); // location 객체 가져오기
-  // --- [수정 완료] ---
+  const location = useLocation();
+  const { toast } = useToast();
+  
+  // [변경] 스토어에서 데이터 가져오기
+  const { assets, fetchAssets, isLoading } = useCardStore();
   
   const [api, setApi] = useState<CarouselApi>();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'activating' | 'activated'>('idle');
 
-  // --- [수정됨] ---
+  // [신규] 결제 정보 입력 상태 (UI는 그대로 두고 변수만 추가)
+  const [amount, setAmount] = useState(5000); // 기본값 5,000원
+  const [merchant, setMerchant] = useState('스타벅스'); // 기본값
+
+  // [변경] 초기 데이터 로드
+  useEffect(() => {
+    fetchAssets();
+  }, [fetchAssets]);
+
+  // [변경] 캐러셀 아이템 구성 (실제 자산 + 카드 추가 슬롯)
+  const carouselItems = [
+    ...assets.map(asset => ({
+      id: asset.asset_id.toString(),
+      name: asset.external_account_name || asset.institution_name,
+      cardImage: asset.card_image_url || 'http://localhost:8080/placeholder.svg', // 이미지 URL
+      type: 'card',
+      originalAsset: asset // 실제 결제 시 사용하기 위해 원본 객체 저장
+    })),
+    {
+      id: 'add',
+      name: '카드 추가',
+      cardImage: '',
+      type: 'add',
+      originalAsset: null
+    }
+  ];
+
   useEffect(() => {
     if (!api) return;
 
-    // 1. 챗봇에서 state를 넘겼는지 확인 (recommendedCardId가 존재하는지)
-    const cameFromChat = location.state?.recommendedCardId;
+    // 1. 챗봇 등 외부에서 특정 카드를 지정해서 들어온 경우
+    const recommendedCardId = location.state?.recommendedCardId;
     
-    if (cameFromChat) {
-      // 2. 챗봇에서 왔다면, 무조건 두 번째 카드(인덱스 1)로 스크롤합니다.
-      const targetIndex = 1; 
-
-      api.scrollTo(targetIndex); 
-      setActiveIndex(targetIndex);
-        
-      // 3. 스크롤 후, location state를 초기화합니다.
+    if (recommendedCardId) {
+      // 해당 카드의 인덱스 찾기
+      const targetIndex = carouselItems.findIndex(item => item.id === recommendedCardId);
+      if (targetIndex !== -1) {
+        api.scrollTo(targetIndex); 
+        setActiveIndex(targetIndex);
+      }
+      // state 초기화
       navigate(location.pathname, { replace: true, state: {} });
       
     } else {
-      // 4. state가 없으면(일반적인 월렛 방문) 기본 인덱스를 설정합니다.
       setActiveIndex(api.selectedScrollSnap());
     }
 
-    // 5. 사용자가 직접 스크롤할 때 activeIndex를 업데이트하는 리스너를 등록합니다.
     const onSelect = () => {
       setActiveIndex(api.selectedScrollSnap());
     };
     api.on("select", onSelect);
 
-    // 6. 클린업
     return () => {
       api.off("select", onSelect);
     };
 
-  }, [api, location.state, navigate, location.pathname]); // 의존성 배열 수정
-  // --- [수정 완료] ---
+  }, [api, location.state, navigate, location.pathname, assets]); // assets 의존성 추가
 
-  const handlePayment = () => {
-    // 결제 로직
+  // [변경] 실제 결제 API 호출 로직
+  const handlePayment = async () => {
+    const currentItem = carouselItems[activeIndex];
+    if (!currentItem.originalAsset) return; // 예외 처리
+
+    // 1. 애니메이션 시작 (카드 세우기)
     setPaymentStatus('activating'); 
-    setTimeout(() => {
-      setPaymentStatus('activated'); 
-      setTimeout(() => {
-        setIsModalOpen(false); // 결제 완료 후 1.5초 뒤 팝업 닫기
-      }, 1500);
-    }, 2000);
+
+    try {
+        // 2. 실제 API 호출 (비동기)
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://localhost:8080/api/transactions/pay', {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                user_asset_id: currentItem.originalAsset.asset_id,
+                amount: amount, // 현재는 고정값(5000), 추후 입력값으로 대체
+                merchant_name: merchant
+            })
+        });
+
+        if (!response.ok) throw new Error('승인 거절');
+
+        const result = await response.json();
+
+        // 3. API 성공 시 애니메이션 완료 상태로 전환 (최소 1초 딜레이를 줘서 애니메이션 보여줌)
+        setTimeout(() => {
+            setPaymentStatus('activated');
+            
+            toast({
+                title: "결제 성공",
+                description: `${result.merchant}에서 ${result.amount.toLocaleString()}원 결제되었습니다.`
+            });
+
+            // 4. 팝업 닫기
+            setTimeout(() => {
+                setIsModalOpen(false);
+            }, 1500);
+        }, 1000);
+
+    } catch (error) {
+        console.error(error);
+        toast({ title: "결제 실패", description: "결제를 처리할 수 없습니다.", variant: "destructive" });
+        setPaymentStatus('idle'); // 에러 시 초기화
+        setIsModalOpen(false);
+    }
   };
 
-  // 모달이 닫힐 때(취소 또는 외부 클릭) 상태 초기화
+  // 모달이 닫힐 때 상태 초기화
   const onModalOpenChange = (open: boolean) => {
     if (!open) {
       setPaymentStatus('idle');
@@ -108,48 +155,55 @@ const Wallet = () => {
   }
 
   // 현재 활성화된 아이템 정보 가져오기
-  const getActiveItem = () => carouselItems[activeIndex] || carouselItems[0];
-  const isAddCardActive = getActiveItem().id === 'add';
+  const activeItem = carouselItems[activeIndex] || carouselItems[0];
+  const isAddCardActive = activeItem.id === 'add';
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-slate-50">
       {/* Header */}
-      <div className="flex items-center p-4 border-b">
-        <h1 className="text-lg font-semibold flex-1 text-center">월렛</h1>
+      <div className="flex items-center p-4 border-b bg-white">
+        <h1 className="text-lg font-semibold flex-1 text-center">내 지갑</h1>
       </div>
 
       {/* --- 카드 캐러셀 --- */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 space-y-8 overflow-hidden">
         
+        {isLoading ? (
+            <div className="flex flex-col items-center animate-pulse">
+                <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
+                <p className="text-sm text-muted-foreground">카드를 불러오는 중...</p>
+            </div>
+        ) : (
         <Carousel 
           setApi={setApi} 
-          className="w-full max-w-xs" 
+          // className="w-full max-w-xs perspective-1000" 
+          className="w-full max-w-xs perspective-1000" 
           opts={{
-            loop: false, // '카드 추가' 슬롯이 마지막에 고정되도록 loop 비활성화
-            align: "start",
+            loop: false,
+            align: "center",
           }}
         >
           <CarouselContent>
             {carouselItems.map((card) => (
-              <CarouselItem key={card.id}>
+              <CarouselItem key={card.id} >
                 {card.id === 'add' ? (
-                  // '카드 추가' 슬롯 렌더링
-                  <Link to="/app/wallet/add">
+                  // '카드 추가' 슬롯
+                  <div onClick={() => navigate('/app/wallet/add')} className="cursor-pointer">
                     <Card 
-                      className="shadow-none border-2 border-dashed border-muted-foreground/30 bg-transparent flex items-center justify-center"
-                      style={{
-                        aspectRatio: '85.6 / 53.98' // 가로 카드 비율
-                      }}
+                      className="shadow-sm border-2 border-dashed border-slate-300 bg-white/50 flex items-center justify-center hover:bg-slate-100 transition-colors"
+                      // style={{ aspectRatio: '85.6 / 53.98' }}
                     >
-                      <div className="flex flex-col items-center text-muted-foreground/70">
-                        <Plus className="w-10 h-10" />
+                      <div className="flex flex-col items-center text-slate-400">
+                        <Plus className="w-10 h-10 mb-2" />
                         <span className="text-sm font-medium">카드 추가</span>
                       </div>
                     </Card>
-                  </Link>
+                  </div>
                 ) : (
-                  // 일반 카드 렌더링 (눕혀진 카드)
-                  <Card 
+                  // 일반 카드 (DB 데이터)
+                  <div className="p-1">
+                    <Card 
+                    // className="shadow-elevated overflow-hidden rounded-lg bg-white flex items-center justify-center"
                     className="shadow-elevated overflow-hidden rounded-lg bg-white flex items-center justify-center"
                     style={{
                       aspectRatio: '85.6 / 53.98' // 가로 카드 비율
@@ -160,102 +214,120 @@ const Wallet = () => {
                       alt={card.name} 
                       className="w-full h-full object-contain -rotate-90 scale-[1.15]"
                     />
-                  </Card>
+                    </Card>
+                  </div>
                 )}
               </CarouselItem>
             ))}
           </CarouselContent>
+          
+          {/* 이름 표시 */}
+          <div className="text-center mt-6 space-y-1 h-12">
+            {!isAddCardActive && (
+                <>
+                    <h3 className="text-lg font-bold text-slate-800">{activeItem.name}</h3>
+                    <p className="text-xs text-slate-500">{activeItem.originalAsset?.institution_name}</p>
+                </>
+            )}
+          </div>
         </Carousel>
+        )}
 
-        {/* 캐러셀 인디케이터 (점) */}
+        {/* 캐러셀 인디케이터 */}
         <div className="flex justify-center gap-2">
           {carouselItems.map((_, index) => (
             <div
               key={index}
               className={cn(
                 "w-2 h-2 rounded-full transition-all duration-300",
-                index === activeIndex ? "w-4 bg-primary" : "bg-muted-foreground/30"
+                index === activeIndex ? "w-4 bg-primary" : "bg-slate-300"
               )}
             />
           ))}
         </div>
 
-        {/* '카드 추가' 슬롯이 활성화되면 '결제하기' 버튼 숨기기 */}
-        {!isAddCardActive && (
-          <AlertDialog open={isModalOpen} onOpenChange={onModalOpenChange}>
-            <AlertDialogTrigger asChild>
-              <Button className="w-full max-w-xs mx-auto btn-gradient h-12 text-lg font-medium shadow-lg">
-                결제하기
-              </Button>
-            </AlertDialogTrigger>
-            
-            <AlertDialogContent className="max-w-[300px]">
-              {paymentStatus === 'idle' && (
-                <>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>결제하시겠습니까?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {getActiveItem().name}(으)로 1,000원(테스트)을 결제합니다.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>취소</AlertDialogCancel>
+        {/* 버튼 영역 */}
+        <div className="w-full max-w-xs">
+            {!isAddCardActive ? (
+            <AlertDialog open={isModalOpen} onOpenChange={onModalOpenChange}>
+                <AlertDialogTrigger asChild>
+                <Button className="w-full btn-gradient h-12 text-lg font-bold shadow-lg transition-transform active:scale-95">
+                    결제하기
+                </Button>
+                </AlertDialogTrigger>
+                
+                <AlertDialogContent className="max-w-[320px] rounded-2xl">
+                {paymentStatus === 'idle' && (
+                    <>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-center">결제 승인</AlertDialogTitle>
+                        <AlertDialogDescription className="text-center">
+                        <span className="font-bold text-slate-900">{merchant}</span>에서<br/>
+                        <span className="text-lg font-bold text-primary">{amount.toLocaleString()}원</span>을 결제합니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
                     
-                    {/* --- [수정됨] --- */}
-                    {/* <AlertDialogAction>은 클릭 시 팝업을 닫아버리므로,
-                        일반 <Button>으로 교체해야 상태가 유지됩니다. */}
-                    <Button onClick={handlePayment} className="btn-gradient">
-                      결제
-                    </Button>
-                    {/* --- [수정 완료] --- */}
-                    
-                  </AlertDialogFooter>
-                </>
-              )}
-              
-              {(paymentStatus === 'activating' || paymentStatus === 'activated') && (
-                <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4 perspective-1000">
-                  <div 
-                    className={cn(
-                      "relative w-48 rounded-lg overflow-hidden shadow-elevated transform-style-3d",
-                      "animate-card-stand-up", 
-                      paymentStatus === 'activated' && "animate-card-activated"
+                    {/* 카드 미리보기 (작게) */}
+                    <div className="flex justify-center py-4">
+                        <img src={activeItem.cardImage} className="h-16 object-contain" alt="card" />
+                    </div>
+
+                    <AlertDialogFooter className="flex-row space-x-2 sm:space-x-2">
+                        <AlertDialogCancel className="flex-1 h-12 m-0">취소</AlertDialogCancel>
+                        <Button onClick={handlePayment} className="flex-1 h-12 btn-gradient m-0">
+                        승인
+                        </Button>
+                    </AlertDialogFooter>
+                    </>
+                )}
+                
+                {(paymentStatus === 'activating' || paymentStatus === 'activated') && (
+                    <div className="flex flex-col items-center justify-center min-h-[300px] space-y-6 perspective-1000">
+                    {/* 3D 애니메이션용 카드 컨테이너 */}
+                    <div 
+                        className={cn(
+                        "relative w-32 rounded-lg shadow-2xl transform-style-3d transition-all duration-700",
+                        // activating: 카드가 서서히 일어섬 (rotateX)
+                        paymentStatus === 'activating' && "animate-card-stand-up", 
+                        // activated: 결제 완료 시 반짝임 효과 등
+                        paymentStatus === 'activated' && "scale-110 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                        )}
+                        style={{ aspectRatio: '53.98 / 85.6' }} // 세로 비율
+                    >
+                        <img
+                        src={activeItem.cardImage}
+                        alt={activeItem.name}
+                        className="w-full h-full object-cover rounded-lg -rotate-90 scale-[1.6]" // 세로로 보여주기 위해 회전
+                        />
+                    </div>
+
+                    {paymentStatus === 'activating' && (
+                        <div className="flex flex-col items-center space-y-2 text-muted-foreground animate-pulse">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                        <span className="text-sm font-medium">승인 요청 중...</span>
+                        </div>
                     )}
-                    style={{ aspectRatio: '53.98 / 85.6' }}
-                  >
-                    <img
-                      src={getActiveItem().cardImage}
-                      alt={getActiveItem().name}
-                      className="w-full h-full object-cover backface-hidden"
-                    />
-                  </div>
-                  {paymentStatus === 'activating' && (
-                    <div className="flex items-center space-x-2 text-muted-foreground pt-4">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>결제 중...</span>
+                    {paymentStatus === 'activated' && (
+                        <div className="flex flex-col items-center space-y-2 text-green-600 animate-in zoom-in">
+                        <CheckCircle className="w-8 h-8" />
+                        <span className="text-lg font-bold">결제 완료!</span>
+                        </div>
+                    )}
                     </div>
-                  )}
-                  {paymentStatus === 'activated' && (
-                    <div className="flex items-center space-x-2 text-success font-semibold pt-4">
-                      <CheckCircle className="w-5 h-5" />
-                      <span>결제 완료!</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-        
-        {/* '카드 추가' 슬롯이 활성화되면 '카드 등록' 버튼을 대신 표시 */}
-        {isAddCardActive && (
+                )}
+                </AlertDialogContent>
+            </AlertDialog>
+            ) : (
+             // 카드 추가 버튼
             <Button 
-            className="w-full max-w-xs mx-auto btn-gradient h-12 text-lg font-medium shadow-lg"
-            onClick={() => navigate('/app/wallet/add')}
-          >
-            카드 등록하기
-          </Button>
-        )}
+                className="w-full btn-gradient h-12 text-lg font-bold shadow-lg"
+                onClick={() => navigate('/app/wallet/add')}
+            >
+                <Plus className="mr-2 w-5 h-5" />
+                카드 등록하기
+            </Button>
+            )}
+        </div>
       </div>
     </div>
   );
