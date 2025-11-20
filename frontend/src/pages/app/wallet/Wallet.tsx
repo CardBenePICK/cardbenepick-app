@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Plus, Loader2, CheckCircle } from 'lucide-react';
+import { Plus, Loader2, CheckCircle, CreditCard } from 'lucide-react';
 import {
   Carousel,
   CarouselContent,
@@ -22,17 +22,16 @@ import {
 import { Input } from '@/components/ui/input'; // [추가] 입력 필드
 import { Label } from '@/components/ui/label'; // [추가] 라벨
 import { cn } from '@/lib/utils';
-import { useCardStore } from '@/store/useCardStore';
-import { useToast } from '@/hooks/use-toast';
+import { useCardStore, Asset } from '@/store/useCardStore'; // Store 임포트
+import { useToast } from '@/hooks/use-toast'; // Toast 임포트
 
-// [신규] 이미지 비율을 감지하여 자동으로 회전시키는 컴포넌트
+// [기존 유지] 이미지 비율 감지 컴포넌트
 const AutoOrientedCardImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
   const [isPortrait, setIsLandscape] = useState(false);
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { naturalWidth, naturalHeight } = e.currentTarget;
-    // 가로가 세로보다 길면 '가로형 카드'로 판단 -> 회전 필요
-    if (naturalHeight >naturalWidth) {
+    if (naturalHeight > naturalWidth) {
       setIsLandscape(true);
     }
   };
@@ -46,35 +45,7 @@ const AutoOrientedCardImage = ({ src, alt, className }: { src: string, alt: stri
         className,
         "transition-transform duration-300",
         isPortrait 
-          ? "-rotate-90 scale-[1.6] object-contain" // 비율 유지하며 회전 + 확대
-          : "object-cover"
-      )}
-    />
-  );
-};
-
-// [신규] 결제 애니메이션용: 가로형 이미지를 세로로 세움 (기존과 반대 로직)
-const VerticalCardImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
-  const [isPortrait, setIsLandscape] = useState(false);
-
-  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const { naturalWidth, naturalHeight } = e.currentTarget;
-    // 가로가 더 길면(Landscape) -> 세로 프레임에 맞게 세움
-    if (naturalWidth > naturalHeight) {
-      setIsLandscape(true);
-    }
-  };
-
-  return (
-    <img
-      src={src}
-      alt={alt}
-      onLoad={handleImageLoad}
-      className={cn(
-        className,
-        "transition-transform duration-300",
-        isPortrait 
-          ? "-rotate-90 scale-[1.6] object-contain" // 비율 유지하며 회전 + 확대
+          ? "-rotate-90 scale-[1.6] object-contain" 
           : "object-cover"
       )}
     />
@@ -92,10 +63,11 @@ const Wallet = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'activating' | 'activated'>('idle');
+
   // ------------------------------------------------------------------
-  // [수정] 결제 정보 상태 관리 (외부 변수 수신 or 사용자 입력)
+  // [수정] 결제 정보 상태 관리
   // ------------------------------------------------------------------
-  const incomingPayment = location.state?.payment;
+  const incomingPayment = location.state?.payment; 
 
   // 초기값: 외부 값이 있으면 그 값으로, 없으면 빈 값(사용자 입력 유도)
   const [merchant, setMerchant] = useState<string>(incomingPayment?.merchant || '');
@@ -105,14 +77,14 @@ const Wallet = () => {
     fetchAssets();
   }, [fetchAssets]);
 
-  // 캐러셀 아이템 구성
+  // 캐러셀 아이템 구성 (기존 유지)
   const carouselItems = [
     ...assets.map(asset => ({
       id: asset.asset_id.toString(),
       name: asset.external_account_name || asset.institution_name,
-      cardImage: asset.card_image_url || 'http://localhost:8080/placeholder.svg',
+      cardImage: asset.card_image_url || 'http://localhost:8080/placeholder.svg', 
       type: 'card',
-      originalAsset: asset
+      originalAsset: asset 
     })),
     {
       id: 'add',
@@ -122,10 +94,10 @@ const Wallet = () => {
       originalAsset: null
     }
   ];
-useEffect(() => {
+
+  useEffect(() => {
     if (!api) return;
 
-    // 1. 챗봇 등 외부에서 특정 카드를 지정해서 들어온 경우
     const recommendedCardId = location.state?.recommendedCardId;
     
     if (recommendedCardId) {
@@ -135,12 +107,12 @@ useEffect(() => {
         setActiveIndex(targetIndex);
       }
       
-      // [추가] 결제 정보가 함께 들어왔다면 모달을 자동으로 열어줄 수 있음
+      // [추가] 결제 정보가 함께 들어왔다면 모달을 자동으로 열어줌
       if (incomingPayment) {
         setIsModalOpen(true);
       }
       
-      // navigate(location.pathname, { replace: true, state: {} }); // state 초기화가 필요하다면 주석 해제
+      // navigate(location.pathname, { replace: true, state: {} }); // 필요 시 주석 해제
     } else {
       setActiveIndex(api.selectedScrollSnap());
     }
@@ -170,7 +142,7 @@ useEffect(() => {
 
     try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:8080/api/transactions/pay', {
+        const response = await fetch('http://localhost:8000/api/transactions/pay', {
             method: 'POST',
             headers: {
             'Content-Type': 'application/json',
@@ -197,7 +169,7 @@ useEffect(() => {
 
             setTimeout(() => {
                 setIsModalOpen(false);
-                // 결제 완료 후 입력값 초기화 (선택사항)
+                // 모달 닫힌 후 입력값 초기화 (선택사항)
                 if (!incomingPayment) {
                     setMerchant('');
                     setAmount('');
@@ -208,7 +180,7 @@ useEffect(() => {
     } catch (error) {
         console.error(error);
         toast({ title: "결제 실패", description: "결제를 처리할 수 없습니다.", variant: "destructive" });
-        setPaymentStatus('idle'); 
+        setPaymentStatus('idle'); // 에러 시 초기화
         setIsModalOpen(false);
     }
   };
@@ -224,86 +196,9 @@ useEffect(() => {
     }
     setIsModalOpen(open);
   }
-  // useEffect(() => {
-  //   if (!api) return;
 
-  //   const recommendedCardId = location.state?.recommendedCardId;
-    
-  //   if (recommendedCardId) {
-  //     const targetIndex = carouselItems.findIndex(item => item.id === recommendedCardId);
-  //     if (targetIndex !== -1) {
-  //       api.scrollTo(targetIndex); 
-  //       setActiveIndex(targetIndex);
-  //     }
-  //     navigate(location.pathname, { replace: true, state: {} });
-  //   } else {
-  //     setActiveIndex(api.selectedScrollSnap());
-  //   }
-
-  //   const onSelect = () => {
-  //     setActiveIndex(api.selectedScrollSnap());
-  //   };
-  //   api.on("select", onSelect);
-
-  //   return () => {
-  //     api.off("select", onSelect);
-  //   };
-
-  // }, [api, location.state, navigate, location.pathname, assets]);
-
-  // const handlePayment = async () => {
-  //   const currentItem = carouselItems[activeIndex];
-  //   if (!currentItem.originalAsset) return;
-
-  //   setPaymentStatus('activating'); 
-
-  //   try {
-  //       const token = localStorage.getItem('token');
-  //       const response = await fetch('http://localhost:8080/api/transactions/pay', {
-  //           method: 'POST',
-  //           headers: {
-  //           'Content-Type': 'application/json',
-  //           'Authorization': `Bearer ${token}`
-  //           },
-  //           body: JSON.stringify({
-  //               user_asset_id: currentItem.originalAsset.asset_id,
-  //               amount: amount,
-  //               merchant_name: merchant
-  //           })
-  //       });
-
-  //       if (!response.ok) throw new Error('승인 거절');
-
-  //       const result = await response.json();
-
-  //       setTimeout(() => {
-  //           setPaymentStatus('activated');
-  //           toast({
-  //               title: "결제 성공",
-  //               description: `${result.merchant}에서 ${result.amount.toLocaleString()}원 결제되었습니다.`
-  //           });
-  //           setTimeout(() => {
-  //               setIsModalOpen(false);
-  //           }, 1500);
-  //       }, 1000);
-
-  //   } catch (error) {
-  //       console.error(error);
-  //       toast({ title: "결제 실패", description: "결제를 처리할 수 없습니다.", variant: "destructive" });
-  //       setPaymentStatus('idle');
-  //       setIsModalOpen(false);
-  //   }
-  // };
-
-  // const onModalOpenChange = (open: boolean) => {
-  //   if (!open) {
-  //     setPaymentStatus('idle');
-  //   }
-  //   setIsModalOpen(open);
-  // }
-
-  const activeItem = carouselItems[activeIndex] || carouselItems[0];
-  const isAddCardActive = activeItem.id === 'add';
+  const getActiveItem = () => carouselItems[activeIndex] || carouselItems[0];
+  const isAddCardActive = getActiveItem().id === 'add';
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
@@ -331,13 +226,13 @@ useEffect(() => {
         >
           <CarouselContent>
             {carouselItems.map((card) => (
-              <CarouselItem key={card.id} className="basis-full">
+              <CarouselItem key={card.id} >
                 {card.id === 'add' ? (
-                  // '카드 추가' 슬롯 (세로 비율로 변경)
+                  // '카드 추가' 슬롯
                   <div onClick={() => navigate('/app/wallet/add')} className="cursor-pointer">
                     <Card 
                       className="shadow-sm border-2 border-dashed border-slate-300 bg-white/50 flex items-center justify-center hover:bg-slate-100 transition-colors"
-                      style={{ aspectRatio: '85.6 / 53.98' }} // [변경] 가로 비율 적용
+                      style={{ aspectRatio: '85.6 / 53.98' }}
                     >
                       <div className="flex flex-col items-center text-slate-400">
                         <Plus className="w-10 h-10 mb-2" />
@@ -349,15 +244,17 @@ useEffect(() => {
                   // 일반 카드 (DB 데이터)
                   <div className="p-1">
                     <Card 
-                        className="border-0 shadow-xl rounded-xl bg-transparent overflow-hidden flex items-center justify-center relative transform transition-transform duration-300"
-                        style={{ aspectRatio: '85.6 / 53.98' }} // [변경] 세로 비율 적용 (Portrait)
-                    >
-                        {/* [변경] 자동 회전 이미지 컴포넌트 적용 */}
-                        <AutoOrientedCardImage 
-                            src={card.cardImage} 
-                            alt={card.name}
-                            className="w-full h-full object-contain"
-                        />
+                    className="shadow-elevated overflow-hidden rounded-lg bg-white flex items-center justify-center"
+                    style={{
+                      aspectRatio: '85.6 / 53.98' // 가로 카드 비율 (유지)
+                    }}
+                  >
+                    {/* [유지] 기존 이미지 컴포넌트 사용 */}
+                    <AutoOrientedCardImage 
+                      src={card.cardImage} 
+                      alt={card.name} 
+                      className="w-full h-full"
+                    />
                     </Card>
                   </div>
                 )}
@@ -369,8 +266,8 @@ useEffect(() => {
           <div className="text-center mt-6 space-y-1 h-12">
             {!isAddCardActive && (
                 <>
-                    <h3 className="text-lg font-bold text-slate-800">{activeItem.name}</h3>
-                    <p className="text-xs text-slate-500">{activeItem.originalAsset?.institution_name}</p>
+                    <h3 className="text-lg font-bold text-slate-800">{getActiveItem().name}</h3>
+                    <p className="text-xs text-slate-500">{getActiveItem().originalAsset?.institution_name}</p>
                 </>
             )}
           </div>
@@ -406,11 +303,11 @@ useEffect(() => {
                     <AlertDialogHeader>
                         <AlertDialogTitle className="text-center">결제 정보 입력</AlertDialogTitle>
                         <AlertDialogDescription className="text-center">
-                           결제할 가맹점과 금액을 입력해주세요.
+                           결제할 가맹점과 금액을 확인해주세요.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     
-                    {/* [추가] 입력 필드 영역 */}
+                    {/* [추가] 입력 필드 영역 (모달 내부) */}
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
                             <Label htmlFor="merchant">가맹점</Label>
@@ -453,7 +350,7 @@ useEffect(() => {
                         )}
                         style={{ aspectRatio: '53.98 / 85.6' }} 
                     >
-                        {/* [유지] 애니메이션 카드 이미지 스타일도 동일하게 유지 */}
+                        {/* [유지] 애니메이션 카드 이미지 스타일 */}
                         <img
                         src={getActiveItem().cardImage}
                         alt={getActiveItem().name}
@@ -478,6 +375,7 @@ useEffect(() => {
                 </AlertDialogContent>
             </AlertDialog>
             ) : (
+             // 카드 추가 버튼
             <Button 
                 className="w-full btn-gradient h-12 text-lg font-bold shadow-lg"
                 onClick={() => navigate('/app/wallet/add')}
