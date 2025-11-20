@@ -136,8 +136,9 @@ class CardProductResponse(SQLModel):
 @router.get("/products", response_model=List[CardProductResponse])
 def get_card_products(
     company: str,
-    db: Session = Depends(deps.get_db),
-    payload: dict = Depends(get_current_user_payload)
+    db: Session = Depends(deps.get_db)
+    # payload: dict = Depends(get_current_user_payload)
+    # 카드 상품 목록은 로그인 없이도 조회할 수 있도록 공개 API로 엽니다.
 ):
     """
     특정 카드사(예: '신한카드')의 모든 카드 상품 목록을 반환합니다.
