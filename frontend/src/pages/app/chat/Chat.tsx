@@ -19,7 +19,8 @@ const Chat = () => {
     }
   ]);
   const [inputValue, setInputValue] = useState('');
-  
+  const [isLoading, setIsLoading] = useState(false); // 로딩 상태 추가
+
   // --- [수정됨] ---
   const [isWaitingForMerchant, setIsWaitingForMerchant] = useState(false); // 가맹점 입력 대기 상태
   // --- [수정 완료] ---
@@ -48,62 +49,45 @@ const Chat = () => {
   };
 
   // --- [수정됨] ---
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return; // 로딩 중이면 중복 전송 방지
 
-    addMessage(inputValue, 'user');
-    
-    if (isWaitingForAmount) {
-      // 3. 금액 입력 처리
-      const amount = parseInt(inputValue.replace(/[^0-9]/g, ''));
-      if (amount > 0) {
-        const query: PaymentQuery = {
-          merchant: currentQuery.merchant!,
-          amount,
-          category: currentQuery.category
-        };
-        
-        // 카드 추천 실행
-        const recommendations = getCardRecommendations(query, sampleCards);
-        
-        setTimeout(() => {
-          addMessage(
-            `${query.merchant}에서 ${amount.toLocaleString()}원 결제 시 추천 카드를 찾았습니다!`,
-            'bot',
-            { recommendations, query }
-          );
-        }, 1000);
-        
-        // 모든 대화 상태 초기화
-        setIsWaitingForAmount(false);
-        setIsWaitingForMerchant(false); 
-        setCurrentQuery({});
-      } else {
-        setTimeout(() => {
-          addMessage('올바른 금액을 입력해주세요.', 'bot');
-        }, 500);
-        // 금액을 잘못 입력했으므로, 여전히 금액 입력 대기
-      }
-    } else if (isWaitingForMerchant) {
-      // 2. 가맹점 입력 처리
-      const merchant = inputValue;
-      const category = inferCategoryFromMerchant(merchant);
-      
-      setCurrentQuery({ merchant, category });
-      setIsWaitingForAmount(true); // 다음 단계: 금액 대기
-      setIsWaitingForMerchant(false); // 가맹점 대기 완료
-      
-      setTimeout(() => {
-        addMessage(`${merchant}에서 결제하실 금액을 알려주세요. (예: 15000)`, 'bot');
-      }, 500);
-    } else {
-      // 1. 일반 대화 (추천 플로우 아님)
-      setTimeout(() => {
-        addMessage('어떤 도움이 필요신가요? "카드 추천받기" 버튼을 눌러주세요.', 'bot');
-      }, 500);
-    }
-    
+    const userMessage = inputValue;
+    addMessage(userMessage, 'user');
     setInputValue('');
+    setIsLoading(true); // 로딩 시작
+
+    try {
+      // 서버로 POST 요청 전송
+      const response = await fetch('http://localhost:8090/chat_react', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded', // 폼 데이터 전송 방식
+          // 만약 JSON으로 보내고 싶다면 'application/json'을 사용하고 body를 JSON.stringify({ query: userMessage })로 변경
+        },
+        // Jinja 템플릿의 form 방식과 호환되도록 x-www-form-urlencoded 형식으로 전송
+        body: new URLSearchParams({
+          'query': userMessage 
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      console.log("chat-response", response)
+      // 서버 응답 처리 (JSON으로 온다고 가정)
+      const data = await response.json();
+      
+      // 서버 응답 구조에 맞춰 메시지 추가
+      // 예: { "response": "추천 카드는...", "cards": [...] } 라고 가정
+      addMessage(data.response || "답변을 받았습니다.", 'bot', { recommendations: data.cards });
+
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      addMessage("죄송합니다. 서버와 통신 중 오류가 발생했습니다.", 'bot');
+    } finally {
+      setIsLoading(false); // 로딩 종료
+    }
   };
   // --- [수정 완료] ---
 
