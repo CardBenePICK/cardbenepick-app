@@ -26,14 +26,10 @@ const VerifyCard = () => {
     setStatus('loading');
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/assets/register', {
+      // [수정] fetch -> fetchWithAuth 로 변경
+      // (헤더 토큰 설정 제거 - 내부에서 자동 처리됨)
+      const response = await fetchWithAuth('http://localhost:8000/api/assets/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        // 백엔드 CardRegisterRequest 스키마에 맞춰 전송
         body: JSON.stringify({
           card_number: cardData.card_number,
           cvc: cardData.cvc,
@@ -49,16 +45,18 @@ const VerifyCard = () => {
       }
 
       // 성공 처리
-      await fetchAssets(); // 전역 스토어 갱신 (월렛 화면에 바로 뜨게 함)
+      await fetchAssets(); 
       
       setStatus('success');
       setTimeout(() => {
         navigate('/app/wallet');
-      }, 1500); // 1.5초 후 이동
+      }, 1500);
 
     } catch (error: any) {
       console.error(error);
       setStatus('error');
+      // 401 에러라면 이미 SessionMonitor가 로그인 페이지로 보냈을 것이므로
+      // 여기서는 에러 메시지만 띄워주면 됨
       toast({ title: "등록 실패", description: error.message, variant: "destructive" });
     }
   };

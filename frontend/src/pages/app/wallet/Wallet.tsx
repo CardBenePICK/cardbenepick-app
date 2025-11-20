@@ -22,20 +22,61 @@ import {
 import { Input } from '@/components/ui/input'; 
 import { Label } from '@/components/ui/label'; 
 import { cn } from '@/lib/utils';
-import { fetchWithAuth } from '@/lib/api'; // [추가]
+import { fetchWithAuth } from '@/lib/api';
 import { useCardStore } from '@/store/useCardStore';
 import { useToast } from '@/hooks/use-toast';
 
-// [유지] 이미지 컴포넌트
+// [기존] 메인 화면용: 가로형 카드 이미지 (세로 이미지는 눕힘)
 const AutoOrientedCardImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
   const [isPortrait, setIsLandscape] = useState(false);
+
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { naturalWidth, naturalHeight } = e.currentTarget;
-    if (naturalHeight > naturalWidth) setIsLandscape(true);
+    if (naturalHeight > naturalWidth) {
+      setIsLandscape(true);
+    }
   };
+
   return (
-    <img src={src} alt={alt} onLoad={handleImageLoad}
-      className={cn(className, "transition-transform duration-300", isPortrait ? "-rotate-90 scale-[1.6] object-contain" : "object-cover")}
+    <img
+      src={src}
+      alt={alt}
+      onLoad={handleImageLoad}
+      className={cn(
+        className,
+        "transition-transform duration-300",
+        isPortrait 
+          ? "-rotate-90 scale-[1.6] object-contain" 
+          : "object-cover"
+      )}
+    />
+  );
+};
+
+// [복구] 결제 애니메이션용: 세로형 카드 이미지 (가로 이미지는 세움)
+const VerticalCardImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
+  const [isLandscape, setIsLandscape] = useState(false);
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth, naturalHeight } = e.currentTarget;
+    // 가로가 더 길면 -> 세로 프레임에 맞게 90도 회전
+    if (naturalWidth > naturalHeight) {
+      setIsLandscape(true);
+    }
+  };
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onLoad={handleImageLoad}
+      className={cn(
+        className,
+        "transition-transform duration-300",
+        isLandscape
+          ? "-rotate-90 scale-[1.6] object-contain" // 가로형은 세로로 회전
+          : "object-cover"
+      )}
     />
   );
 };
@@ -71,7 +112,6 @@ const Wallet = () => {
     { id: 'add', name: '카드 추가', cardImage: '', type: 'add', originalAsset: null }
   ];
 
-  // 테스트용 함수
   const handleSimulateChatbot = () => {
     if (assets.length === 0) return;
     const targetCardId = assets[0].asset_id.toString(); 
@@ -109,7 +149,55 @@ const Wallet = () => {
     return () => { api.off("select", onSelect); };
   }, [api, location.state, navigate, assets]);
 
-  const handlePayment = async () => {
+  // const handlePayment = async () => {
+  //   const currentItem = carouselItems[activeIndex];
+  //   if (!currentItem.originalAsset) return;
+
+  //   if (!amount || !merchant) {
+  //       toast({ title: "입력 확인", description: "가맹점과 금액을 입력해주세요.", variant: "destructive" });
+  //       return;
+  //   }
+
+  //   setPaymentStatus('activating'); 
+
+  //   try {
+  //       const response = await fetchWithAuth('http://localhost:8000/api/transactions/pay', {
+  //           method: 'POST',
+  //           body: JSON.stringify({
+  //               user_asset_id: currentItem.originalAsset.asset_id,
+  //               amount: parseInt(amount),
+  //               merchant_name: merchant
+  //           })
+  //       });
+
+  //       if (!response.ok) throw new Error('승인 거절');
+
+  //       const result = await response.json();
+
+  //       setTimeout(() => {
+  //           setPaymentStatus('activated');
+  //           toast({
+  //               title: "결제 성공",
+  //               description: `${result.merchant}에서 ${result.amount.toLocaleString()}원 결제되었습니다.`
+  //           });
+  //           setTimeout(() => {
+  //               setPaymentStatus('idle');
+  //               setIsModalOpen(false);
+  //               if (!incomingPayment) {
+  //                   setMerchant('');
+  //                   setAmount('');
+  //               }
+  //           }, 1500);
+  //       }, 1000);
+
+  //   } catch (error) {
+  //       console.error(error);
+  //       toast({ title: "결제 실패", description: "결제를 처리할 수 없습니다.", variant: "destructive" });
+  //       setPaymentStatus('idle'); 
+  //       setIsModalOpen(false);
+  //   }
+  // };
+const handlePayment = async () => {
     const currentItem = carouselItems[activeIndex];
     if (!currentItem.originalAsset) return;
 
@@ -121,8 +209,6 @@ const Wallet = () => {
     setPaymentStatus('activating'); 
 
     try {
-
-        // [수정] fetchWithAuth 사용 (토큰 헤더 자동 처리, 401 자동 처리)
         const response = await fetchWithAuth('http://localhost:8000/api/transactions/pay', {
             method: 'POST',
             body: JSON.stringify({
@@ -131,19 +217,6 @@ const Wallet = () => {
                 merchant_name: merchant
             })
         });
-        // const token = localStorage.getItem('token');
-        // const response = await fetch('http://localhost:8000/api/transactions/pay', {
-        //     method: 'POST',
-        //     headers: {
-        //     'Content-Type': 'application/json',
-        //     'Authorization': `Bearer ${token}`
-        //     },
-        //     body: JSON.stringify({
-        //         user_asset_id: currentItem.originalAsset.asset_id,
-        //         amount: parseInt(amount),
-        //         merchant_name: merchant
-        //     })
-        // });
 
         if (!response.ok) throw new Error('승인 거절');
 
@@ -155,12 +228,16 @@ const Wallet = () => {
                 title: "결제 성공",
                 description: `${result.merchant}에서 ${result.amount.toLocaleString()}원 결제되었습니다.`
             });
+
             setTimeout(() => {
                 setPaymentStatus('idle');
                 setIsModalOpen(false);
-                if (!incomingPayment) {
-                    setMerchant('');
-                    setAmount('');
+                
+                // [수정] 결제 완료 시 무조건 입력값 초기화 및 state 비우기
+                setMerchant('');
+                setAmount('');
+                if (location.state?.payment) {
+                    navigate(location.pathname, { replace: true, state: {} });
                 }
             }, 1500);
         }, 1000);
@@ -176,13 +253,28 @@ const Wallet = () => {
   const onModalOpenChange = (open: boolean) => {
     if (!open) {
       setPaymentStatus('idle');
-      if (!incomingPayment) {
-        setMerchant('');
-        setAmount('');
+      
+      // [수정] 창을 닫을 때도 입력값 초기화 및 state 비우기
+      setMerchant('');
+      setAmount('');
+      
+      // Test로 들어온 정보가 있다면 네비게이트로 state 초기화
+      if (location.state?.payment) {
+          navigate(location.pathname, { replace: true, state: {} });
       }
     }
     setIsModalOpen(open);
   }
+  // const onModalOpenChange = (open: boolean) => {
+  //   if (!open) {
+  //     setPaymentStatus('idle');
+  //     if (!incomingPayment) {
+  //       setMerchant('');
+  //       setAmount('');
+  //     }
+  //   }
+  //   setIsModalOpen(open);
+  // }
 
   const getActiveItem = () => carouselItems[activeIndex] || carouselItems[0];
   const isAddCardActive = getActiveItem().id === 'add';
@@ -269,10 +361,8 @@ const Wallet = () => {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     
-                    {/* [핵심 변경] incomingPayment 여부에 따라 UI 분기 */}
                     <div className="py-6">
                         {incomingPayment ? (
-                            // 1. 외부 변수가 있을 때: 읽기 전용 텍스트 표시
                             <div className="text-center space-y-2">
                                 <p className="text-xl font-bold text-slate-900">{merchant}</p>
                                 <div className="text-3xl font-black text-primary tracking-tight">
@@ -281,7 +371,6 @@ const Wallet = () => {
                                 </div>
                             </div>
                         ) : (
-                            // 2. 외부 변수가 없을 때: 입력 폼 표시 (기존)
                             <div className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="merchant">가맹점</Label>
@@ -302,12 +391,24 @@ const Wallet = () => {
                     </>
                 )}
                 
-                {/* 3D 애니메이션 영역 (기존 유지) */}
                 {(paymentStatus === 'activating' || paymentStatus === 'activated') && (
                     <div className="flex flex-col items-center justify-center min-h-[300px] space-y-6 perspective-1000">
-                    <div className={cn("relative w-32 rounded-lg shadow-2xl transform-style-3d transition-all duration-700", paymentStatus === 'activating' && "animate-card-stand-up", paymentStatus === 'activated' && "scale-110 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]")} style={{ aspectRatio: '53.98 / 85.6' }}>
-                        <img src={getActiveItem().cardImage} alt={getActiveItem().name} className="w-full h-full object-cover rounded-lg -rotate-90 scale-[1.6]" />
+                    <div 
+                        className={cn(
+                        "relative w-32 rounded-lg shadow-2xl transform-style-3d transition-all duration-700",
+                        paymentStatus === 'activating' && "animate-card-stand-up", 
+                        paymentStatus === 'activated' && "scale-110 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                        )}
+                        style={{ aspectRatio: '53.98 / 85.6' }} 
+                    >
+                        {/* [적용] VerticalCardImage 사용 (세로로 서있는 효과를 위해) */}
+                        <VerticalCardImage
+                          src={getActiveItem().cardImage}
+                          alt={getActiveItem().name}
+                          className="w-full h-full object-cover rounded-lg" 
+                        />
                     </div>
+
                     {paymentStatus === 'activating' && (
                         <div className="flex flex-col items-center space-y-2 text-muted-foreground animate-pulse">
                         <Loader2 className="w-6 h-6 animate-spin text-primary" />

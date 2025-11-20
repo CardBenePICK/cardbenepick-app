@@ -98,5 +98,5 @@ cd frontend
 ```bash
 npm install
 npm run dev
-#  ➜  Local:   http://localhost:8080/
+#  ➜  Local:   http://localhost:/
 ```
