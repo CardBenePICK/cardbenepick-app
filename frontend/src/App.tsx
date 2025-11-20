@@ -2,10 +2,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-// 레이아웃 및 페이지 임포트
+// 레이아웃 및 페이지 임포트 + 로그인 세션 만료 체크 임포트
 import MainLayout from "./components/MainLayout";
+import SessionMonitor from "./components/SessionMonitor";
+
 // --- 루트 페이지 ---
 import Splash from "./pages/Splash";
 import NotFound from "./pages/NotFound";
@@ -47,7 +49,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <HashRouter>
+      <BrowserRouter>
         <Routes>
           {/* ... (Splash, Login 등 기존 인증 라우트) ... */}
           <Route path="/" element={<Splash />} />
@@ -83,7 +85,7 @@ const App = () => (
           {/* CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </HashRouter>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
