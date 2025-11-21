@@ -156,6 +156,17 @@ const Chat = () => {
           </div>
         ))}
         
+        {isLoading && (
+          <div className="flex justify-start animate-in fade-in duration-300">
+            {/* 기존 봇 말풍선 스타일(chat-bubble-bot) 적용 */}
+            <div className="chat-bubble-bot flex items-center space-x-1 min-h-[40px]">
+              <div className="loading-dot"></div>
+              <div className="loading-dot"></div>
+              <div className="loading-dot"></div>
+            </div>
+          </div>
+    )}
+
         {messages.length === 1 && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground text-center">빠른 메뉴</p>
