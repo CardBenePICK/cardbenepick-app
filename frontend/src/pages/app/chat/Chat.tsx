@@ -7,6 +7,86 @@ import { ArrowLeft, Send, BarChart3, CreditCard, TrendingUp } from 'lucide-react
 import { ChatMessage, PaymentQuery } from '../../../types';
 import { getCardRecommendations, inferCategoryFromMerchant } from '../../../utils/cardRecommendation';
 import { sampleCards } from '../../../data/mockData';
+//[임시 2]
+import { HelpCircle, ChevronDown } from 'lucide-react'; // 상단 import에 추가 필요!
+
+// Chat.tsx 상단
+
+// --- [임시 1] 고정된 카드 데이터 (백엔드 대신 여기서 내용 수정) ---
+const FIXED_CARD_DATA = [
+  {
+    id: 'samsung_taptap',
+    name: '삼성카드 taptap O',
+    benefit: '1,250원', // 혜택 금액
+    desc: '스타벅스 50% 할인', // 짧은 요약
+    detail: '삼성카드 taptap O는 월 커피 할인 한도 10,000원 중 잔여 한도가 9,178원 남아있어 50% 할인이 전액 적용됩니다. (전월 실적 80만원 충족)', // 물음표 눌렀을 때 나올 긴 설명
+    color: 'from-pink-500 to-orange-400' // 카드 색상 (그라데이션)
+  },
+  {
+    id: 'shinhan_deep',
+    name: '신한카드 Deep Dream',
+    benefit: '375원',
+    desc: '전가맹점 0.7% 적립',
+    detail: '특별한 할인 조건이 없는 가맹점이므로, Deep Dream의 기본 적립률 0.7%가 적용되어 375 포인트가 적립됩니다.',
+    color: 'from-blue-700 to-blue-500'
+  }
+];
+
+// --- [임시 2] 카드 UI 컴포넌트 ---
+// import { HelpCircle, ChevronDown } from 'lucide-react'; // 상단 import에 추가 필요!
+
+const RecommendationCardItem = ({ card, navigate }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleCardClick = () => {
+    // 카드를 누르면 결제 화면으로 이동하면서 카드 정보 넘기기
+    navigate('/app/wallet', { state: { recommendedCardId: card.id } });
+  };
+
+  const handleHelpClick = (e: any) => {
+    e.stopPropagation(); // 부모의 클릭(결제 이동) 방지
+    setIsOpen(!isOpen); // 설명창 열기/닫기 토글
+  };
+
+  return (
+    <div className="w-full max-w-sm mb-2">
+      {/* 1. 카드 메인 영역 */}
+      <div 
+        onClick={handleCardClick}
+        className="relative flex items-center justify-between p-4 bg-white border rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all"
+      >
+        <div className="flex items-center gap-3">
+          {/* 카드 이미지 (네모 박스) */}
+          <div className={`w-10 h-6 rounded bg-gradient-to-r ${card.color} shadow-sm`}></div>
+          
+          {/* 텍스트 정보 */}
+          <div className="text-left">
+            <h3 className="text-sm font-bold text-gray-800">{card.name}</h3>
+            <p className="text-xs text-blue-600 font-medium">
+              예상 혜택: {card.benefit}
+            </p>
+          </div>
+        </div>
+
+        {/* 물음표 버튼 */}
+        <button 
+          onClick={handleHelpClick}
+          className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+        >
+          <HelpCircle size={20} />
+        </button>
+      </div>
+
+      {/* 2. 상세 설명 영역 (isOpen일 때만 보임) */}
+      {isOpen && (
+        <div className="mt-1 mx-1 p-3 bg-gray-50 text-xs text-gray-600 rounded-lg border border-gray-100 animate-in slide-in-from-top-1">
+          <p className="font-bold mb-1">💡 혜택 산출 근거</p>
+          {card.detail}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Chat = () => {
   const navigate = useNavigate();
@@ -49,47 +129,82 @@ const Chat = () => {
   };
 
   // --- [수정됨] ---
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return; // 로딩 중이면 중복 전송 방지
+  // [임시임시]
+  // Chat.tsx 내부 handleSendMessage 수정
+
+const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage = inputValue;
     addMessage(userMessage, 'user');
     setInputValue('');
-    setIsLoading(true); // 로딩 시작
+    setIsLoading(true); // 로딩 시작 (... 나옴)
 
     try {
-      // 서버로 POST 요청 전송
+      // 1. 서버에 요청은 보냄 (로딩 시간 연출 + 실제 통신)
       const response = await fetch('http://localhost:8090/chat_react', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded', // 폼 데이터 전송 방식
-          // 만약 JSON으로 보내고 싶다면 'application/json'을 사용하고 body를 JSON.stringify({ query: userMessage })로 변경
-        },
-        // Jinja 템플릿의 form 방식과 호환되도록 x-www-form-urlencoded 형식으로 전송
-        body: new URLSearchParams({
-          'query': userMessage 
-        })
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ 'query': userMessage })
       });
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-      console.log("chat-response", response)
-      // 서버 응답 처리 (JSON으로 온다고 가정)
-      const data = await response.json();
+      // 2. 응답이 오면 내용은 무시하고! 
+      //    우리가 준비한 'FIXED_CARD_DATA'를 메시지에 담음
       
-      // 서버 응답 구조에 맞춰 메시지 추가
-      // 예: { "response": "추천 카드는...", "cards": [...] } 라고 가정
-      addMessage(data.response || "답변을 받았습니다.", 'bot', { recommendations: data.cards });
+      // 봇 멘트 먼저 날리고
+      addMessage("스타벅스점에서 2,500원 결제 시, 추천 카드를 찾았습니다!", 'bot');
+      
+      // ★ 여기서 고정된 카드 데이터를 넣어줍니다! ★
+      addMessage("", 'bot', { recommendations: FIXED_CARD_DATA });
 
     } catch (error) {
-      console.error('Failed to send message:', error);
-      addMessage("죄송합니다. 서버와 통신 중 오류가 발생했습니다.", 'bot');
+      console.error('Error:', error);
+      addMessage("오류가 발생했습니다.", 'bot');
     } finally {
-      setIsLoading(false); // 로딩 종료
+      setIsLoading(false); // 로딩 끝
     }
   };
-  // --- [수정 완료] ---
+  // const handleSendMessage = async () => {
+  //   if (!inputValue.trim() || isLoading) return; // 로딩 중이면 중복 전송 방지
+
+  //   const userMessage = inputValue;
+  //   addMessage(userMessage, 'user');
+  //   setInputValue('');
+  //   setIsLoading(true); // 로딩 시작
+
+  //   try {
+  //     // 서버로 POST 요청 전송
+  //     const response = await fetch('http://localhost:8090/chat_react', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/x-www-form-urlencoded', // 폼 데이터 전송 방식
+  //         // 만약 JSON으로 보내고 싶다면 'application/json'을 사용하고 body를 JSON.stringify({ query: userMessage })로 변경
+  //       },
+  //       // Jinja 템플릿의 form 방식과 호환되도록 x-www-form-urlencoded 형식으로 전송
+  //       body: new URLSearchParams({
+  //         'query': userMessage 
+  //       })
+  //     });
+
+  //     if (!response.ok) {
+  //       throw new Error(`Server error: ${response.status}`);
+  //     }
+  //     console.log("chat-response", response)
+  //     // 서버 응답 처리 (JSON으로 온다고 가정)
+  //     const data = await response.json();
+      
+  //     // 서버 응답 구조에 맞춰 메시지 추가
+  //     // 예: { "response": "추천 카드는...", "cards": [...] } 라고 가정
+  //     addMessage(data.response || "답변을 받았습니다.", 'bot', { recommendations: data.cards });
+
+  //   } catch (error) {
+  //     console.error('Failed to send message:', error);
+  //     addMessage("죄송합니다. 서버와 통신 중 오류가 발생했습니다.", 'bot');
+  //   } finally {
+  //     setIsLoading(false); // 로딩 종료
+  //   }
+  // };
+  // // --- [수정 완료] ---
 
 
   // --- [수정됨] ---
@@ -121,7 +236,7 @@ const Chat = () => {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
+        {/* {messages.map((message) => (
           <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={message.type === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}>
               <p className="text-sm">{message.content}</p>
@@ -152,6 +267,31 @@ const Chat = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        ))} */}
+        
+        {/* 임시 4 */}
+        {messages.map((message) => (
+          <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={message.type === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}>
+              
+              {/* 1. 텍스트 메시지 내용 */}
+              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              
+              {/* 2. 추천 카드 데이터가 있으면 -> 우리가 만든 새 컴포넌트로 보여주기! */}
+              {message.data?.recommendations && (
+                <div className="mt-3 space-y-2 w-full min-w-[280px]">
+                  {message.data.recommendations.map((card: any, index: number) => (
+                    <RecommendationCardItem 
+                      key={index} 
+                      card={card} 
+                      navigate={navigate} 
+                    />
+                  ))}
+                </div>
+              )}
+
             </div>
           </div>
         ))}
