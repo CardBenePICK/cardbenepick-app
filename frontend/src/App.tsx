@@ -39,6 +39,8 @@ import CardPerformance from "./pages/app/all/CardPerformance";
 // 3d. 사용자 (app/user)
 import MyPage from "./pages/app/user/MyPage";
 
+import NotificationPage from "./pages/app/notification/NotificationPage";
+
 // --- 4. 공용 페이지 (shared) ---
 import Recommendations from "./pages/shared/Recommendations";
 import CardDetail from "./pages/shared/CardDetail";
@@ -80,6 +82,8 @@ const App = () => (
             <Route path="performance" element={<CardPerformance />} />
 
             <Route path="card/:cardId" element={<CardDetail />} />
+            {/* 주소: /app/notifications */}
+            <Route path="notifications" element={<NotificationPage />} />
           </Route>
 
           {/* CATCH-ALL "*" ROUTE */}

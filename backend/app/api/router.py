@@ -1,6 +1,6 @@
 # 모든 라우터를 통합
 from fastapi import APIRouter
-from app.api.endpoints import auth, assets, users, transactions
+from app.api.endpoints import auth, assets, users, transactions, notifications, analysis
 
 api_router = APIRouter()
 
@@ -13,3 +13,7 @@ api_router.include_router(assets.router, prefix="/assets", tags=["Assets"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 # [추가] transactions 라우터 등록
 api_router.include_router(transactions.router, prefix="/transactions", tags=["Transactions"])
+# router 등록 부분에 추가
+api_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
+
+api_router.include_router(analysis.router, prefix="/analysis", tags=["analysis"])
