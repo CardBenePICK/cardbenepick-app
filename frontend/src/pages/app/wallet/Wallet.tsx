@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Plus, Loader2, CheckCircle, Beaker, Wallet as WalletIcon } from 'lucide-react';
+import { Plus, Loader2, CheckCircle, Beaker, Wallet as WalletIcon, Bell } from 'lucide-react';
 import {
   Carousel,
   CarouselContent,
@@ -283,11 +283,23 @@ const handlePayment = async () => {
     <div className="flex flex-col h-full bg-slate-50 relative">
       {/* Header */}
       <div className="flex items-center p-4 border-b bg-white justify-between relative">
+        {/* 좌측: 테스트 버튼 */}
         <Button variant="ghost" size="sm" className="text-xs text-muted-foreground absolute left-4" onClick={handleSimulateChatbot}>
             <Beaker className="w-4 h-4 mr-1" /> Test
         </Button>
+
+        {/* 중앙: 타이틀 */}
         <h1 className="text-lg font-semibold flex-1 text-center">내 지갑</h1>
-        <div className="w-12" /> 
+
+        {/* 우측: 알림 버튼 (추가됨!) */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="absolute right-4" // 좌측 버튼처럼 absolute로 위치를 고정했습니다
+          onClick={() => navigate('/app/notifications')}
+        >
+          <Bell className="w-6 h-6 text-gray-700" />
+        </Button>
       </div>
 
       {/* --- 카드 캐러셀 --- */}

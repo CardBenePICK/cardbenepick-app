@@ -6,7 +6,7 @@ from datetime import datetime, date
 from sqlmodel import SQLModel, Field, Column, Enum as SQLAEnum, text
 
 # 3. SQLAlchemy에서 필요한 타입들 임포트
-from sqlalchemy import CHAR, BINARY, VARBINARY, ForeignKey, DateTime, JSON
+from sqlalchemy import CHAR, BINARY, VARBINARY, ForeignKey, DateTime, JSON, Boolean
 from sqlalchemy.dialects.mysql import BIGINT, DECIMAL as SQLDecimal, TINYINT
 # --- Enums (DB 스키마와 동일하게) ---
 class Gender(str, enum.Enum):
@@ -176,6 +176,53 @@ class CardTransaction(SQLModel, table=True):
     amount_krw: int = Field(nullable=False)
     installment_months: int = Field(default=0, nullable=False)
     
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    )
+
+# --- Notification ---
+class Notification(SQLModel, table=True):
+    """
+    사용자 알림함 테이블 매핑
+    """
+    __tablename__ = "notifications"
+
+    # [ID] PK, AutoIncrement (UserMaster, UserAsset과 동일한 방식)
+    id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    )
+
+    # [User ID] FK (UserAsset과 동일한 방식)
+    user_id: int = Field(
+        sa_column=Column(
+            BIGINT(unsigned=True), 
+            ForeignKey("user_master.user_id"), 
+            index=True, 
+            nullable=False
+        )
+    )
+
+    # [Alarm Type] 1: 카드혜택, 2: 공지사항 등
+    alarm_type: int = Field(nullable=False)
+
+    # [Content] JSON 데이터 (CardMaster의 json_notice와 동일한 방식)
+    content: Any = Field(sa_column=Column(JSON, nullable=False))
+
+    # [Read At] 읽은 시간 (Null이면 안 읽음)
+    read_at: Optional[datetime] = Field(default=None)
+
+    # [Link URL] 클릭 시 이동할 주소
+    link_url: Optional[str] = Field(default=None, max_length=2083)
+
+    # [Is Active] 숨김 처리 여부 (Boolean 타입 사용)
+    is_active: bool = Field(
+        default=True,
+        sa_column=Column(Boolean, nullable=False, server_default=text("true"))
+    )
+
+    # [Created At] 생성 시간
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
         sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))

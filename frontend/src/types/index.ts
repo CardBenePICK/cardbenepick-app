@@ -125,3 +125,20 @@ export interface RadarChartData {
   user: number;
   group: number;
 }
+
+export interface NotificationContent {
+  card_name?: string;
+  requirement?: string | number;
+  current_usage?: string | number;
+  image_filename?: string;
+  message?: string;
+}
+
+export interface Notification {
+  id: number;
+  alarm_type: number;
+  // [수정] content가 객체일 수도 있고, 객체 배열일 수도 있음
+  content: NotificationContent | NotificationContent[]; 
+  is_read: boolean;
+  created_at: string;
+}
