@@ -223,9 +223,7 @@ const handleSendMessage = async () => {
       // 예: { "response": "추천 카드는...", "cards": [...] } 라고 가정
       if (isValidJson(data.response)){
         const recommend_data = JSON.parse(data.response);
-        if ("recommended_card" in recommend_data){ // 혜택 계산을 해서 나왔을 경우
-          console.log("recommended_card 가 있습니다.")
-          
+        if ("recommended_card" in recommend_data){ // 혜택 계산을 해서 나왔을 경우         
           
           const recommend_cards_data = []
           let merchant = ""
@@ -255,7 +253,8 @@ const handleSendMessage = async () => {
         }
         // addMessage(data.response + "\n\n 이렇습니다." || "답변을 받았습니다.", 'bot', { recommendations: data.cards });  
       }else{
-        addMessage("data.response가 json 형태가 아닙니다.\n" + data.response + "\n\n 이렇습니다." || "답변을 받았습니다.", 'bot', { recommendations: data.cards }); 
+        // json 형태로 받은 것이 아닌 답변 그대로 챗봇으로 표현하면 된다.
+        addMessage(data.response || "답변을 받았습니다.", 'bot', { recommendations: data.cards }); 
       }
          
 
