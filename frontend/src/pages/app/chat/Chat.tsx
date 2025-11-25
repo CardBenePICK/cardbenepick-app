@@ -157,14 +157,35 @@ const handleSendMessage = async () => {
     setInputValue('');
     setIsLoading(true); // 로딩 시작 (... 나옴)
 
-    try {
-      // 1. 서버에 요청은 보냄 (로딩 시간 연출 + 실제 통신)
+
+    // 1. 로컬 스토리지에서 토큰 가져오기
+    const token = localStorage.getItem("access_token");
+    try{
+      // 1. 로컬 스토리지에서 토큰 가져오기
+      const token = localStorage.getItem("access_token");
+
+      // 2. 서버에 요청 (헤더에 토큰 추가)
       const response = await fetch('http://localhost:8090/chat_react', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 
+            'Content-Type': 'application/x-www-form-urlencoded',
+            // [핵심] 토큰이 있을 때만 Authorization 헤더를 추가합니다.
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: new URLSearchParams({ 'query': userMessage })
       });
-      
+    
+    // 헤더에 토큰 포함시키기
+    // try {
+    //   // 1. 서버에 요청은 보냄 (로딩 시간 연출 + 실제 통신)
+    //   const response = await fetch('http://localhost:8090/chat_react', {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    //     body: new URLSearchParams({ 'query': userMessage })
+    //   });
+
+      // 2. 응답이 오면 내용은 무시하고! 
+      //    우리가 준비한 'FIXED_CARD_DATA'를 메시지에 담음    
 
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
