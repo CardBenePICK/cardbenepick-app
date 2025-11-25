@@ -227,3 +227,24 @@ class Notification(SQLModel, table=True):
         default_factory=datetime.utcnow,
         sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     )
+
+# --- [추가] CardBenefit ---
+class CardBenefit(SQLModel, table=True):
+    """
+    카드 혜택 상세 정보 (card_benefit 테이블)
+    """
+    __tablename__ = "card_benefit"
+
+    benefit_id: str = Field(primary_key=True, max_length=16)
+    
+    # FK: card_master.card_id와 연결
+    card_id: str = Field(max_length=64, nullable=False, index=True) 
+    
+    category: str = Field(max_length=64, nullable=False, index=True) # 혜택 카테고리
+    summary: Optional[str] = Field(default=None, max_length=255)     # 혜택 요약
+    
+    # JSON 데이터 (상세 설명 등)
+    json_rawdata: Optional[Any] = Field(default=None, sa_column=Column(JSON))
+    
+    # MCC 코드 (업종 코드)
+    mcc_code: Optional[Any] = Field(default=None, sa_column=Column(JSON))

@@ -14,14 +14,14 @@ import { Badge } from '@/components/ui/badge';
 import { fetchWithAuth } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-// 백엔드 데이터 타입 (last_month_usage 추가됨)
+// 화면에 표시할 데이터 타입
 interface RealtimeCardData {
+  card_id: string; // 이동을 위해 ID 추가
   card_name: string;
-  card_number: string;
-  current_usage: number; // 이번 달
-  last_month_usage: number; // 지난 달 (NEW)
+  current_usage: number;
+  last_month_usage: number;
   requirement: number;
-  image_filename?: string;
+  image_url: string; // 파일명 대신 전체 URL 사용
 }
 
 const CardPerformance = () => {
@@ -32,12 +32,29 @@ const CardPerformance = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const res = await fetchWithAuth(
-          'http://localhost:8000/api/analysis/realtime-cards',
-        );
+        // [수정] 존재하지 않는 API 대신, 실제 작동하는 '내 자산 조회' API 사용
+        const res = await fetchWithAuth('http://localhost:8000/api/assets/');
+        
         if (res.ok) {
-          const data = await res.json();
-          setCards(data);
+          const assets = await res.json();
+          
+          // [데이터 변환] 백엔드 데이터(UserAsset)를 화면에 맞는 형태(RealtimeCardData)로 변환
+          const formattedData = assets.map((asset: any) => ({
+            card_id: asset.external_account_id || asset.external_account_name, // 상세 이동용 ID
+            card_name: asset.external_account_name || asset.institution_name,
+            // balance가 마이너스일 수 있으므로 절대값 처리
+            current_usage: Math.abs(asset.balance),
+            // 지난달 실적은 DB에 없으므로, 현재 실적과 비슷하게 임의 설정 (실제 서비스라면 별도 API 필요)
+            last_month_usage: Math.floor(Math.abs(asset.balance) * 0.9), 
+            // 목표 실적은 DB에 없으므로 기본값 30만원 설정 (또는 혜택 분석 로직 필요)
+            requirement: 300000,
+            // 이미지 URL 생성 (ID 기반)
+            image_url: asset.external_account_id 
+              ? `http://localhost:8080/${asset.external_account_id}card.png`
+              : 'http://localhost:8080/placeholder.svg'
+          }));
+
+          setCards(formattedData);
         }
       } catch (error) {
         console.error('데이터 로드 실패:', error);
@@ -109,7 +126,7 @@ const CardPerformance = () => {
       {/* 로딩 및 에러 처리 */}
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       ) : cards.length === 0 ? (
         <div className="text-center text-gray-400 py-20">
@@ -162,21 +179,20 @@ const CardPerformance = () => {
               return (
                 <Card
                   key={index}
-                  className="shadow-sm border-gray-100 overflow-hidden"
+                  className="shadow-sm border-gray-100 overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
+                  // [추가] 클릭 시 아까 만든 상세 실적 페이지로 이동 (인코딩 적용)
+                  onClick={() => navigate(`/app/performance/${encodeURIComponent(card.card_id)}`)}
                 >
                   <CardHeader className="pb-3 bg-white border-b border-gray-50">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        {/* 🔹 카드 이미지만 (네모 박스 제거) */}
-                        {card.image_filename ? (
-                          <img
-                            src={`/images/${card.image_filename}`}
+                        {/* 🔹 카드 이미지 처리 수정 */}
+                        <img
+                            src={card.image_url}
                             alt={card.card_name}
-                            className="w-24 h-16 object-contain rotate-90"
-                          />
-                        ) : (
-                          <CreditCard className="w-8 h-8 text-gray-400" />
-                        )}
+                            className="w-16 h-10 object-contain"
+                            onError={(e) => { e.currentTarget.src = "http://localhost:8080/placeholder.svg"; }}
+                        />
 
                         <div>
                           <CardTitle className="text-sm font-bold">
@@ -241,15 +257,12 @@ const CardPerformance = () => {
                     >
                       {/* 왼쪽: 이미지 + 텍스트 */}
                       <div className="flex items-center gap-3">
-                        {/* 🔹 여기서도 네모 박스 제거, 카드 이미지만 */}
-                        {card.image_filename ? (
-                          <img
-                            src={`/images/${card.image_filename}`}
-                            className="w-24 h-16 object-contain rotate-90"
-                          />
-                        ) : (
-                          <CreditCard className="w-7 h-7 text-gray-300" />
-                        )}
+                         <img
+                            src={card.image_url}
+                            alt={card.card_name}
+                            className="w-10 h-10 object-contain"
+                            onError={(e) => { e.currentTarget.src = "http://localhost:8080/placeholder.svg"; }}
+                        />
 
                         <div className="flex flex-col">
                           <p className="font-medium text-sm text-gray-700">

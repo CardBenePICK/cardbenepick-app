@@ -1,6 +1,4 @@
-# backend/app/api/endpoints/assets.py
-
-from typing import List
+from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, SQLModel 
 
@@ -8,13 +6,15 @@ from app.api import deps
 from app.core.security import get_current_user_payload
 from app.services.data_loader import load_mock_data
 from app.schemas.response import AssetResponse 
-from app.db.models import UserAsset, CardTransaction, CardMaster, AssetType
+# [필수] 모델 임포트
+from app.db.models import UserAsset, CardTransaction, CardMaster, AssetType, CardBenefit
 import app.core.config as config
+import urllib.parse # [추가] URL 디코딩용
 
 router = APIRouter()
 
 # -------------------------------------------------------------------
-# 1. 카드 상품 목록 조회 (공개 API)
+# 1. 카드 상품 목록 조회
 # -------------------------------------------------------------------
 class CardProductResponse(SQLModel):
     card_id: str
@@ -27,9 +27,6 @@ def get_card_products(
     company: str,
     db: Session = Depends(deps.get_db),
 ):
-    """
-    특정 카드사(예: '신한카드')의 모든 카드 상품 목록을 반환합니다.
-    """
     products = db.exec(
         select(CardMaster)
         .where(CardMaster.card_company == company)
@@ -38,7 +35,11 @@ def get_card_products(
     
     response = []
     for p in products:
-        image_url = f"{config.IMAGE_BASE_URL}/{p.card_id}card.png"
+        filename = getattr(p, "image_filename", f"{p.card_id}card.png")
+        if not filename:
+            filename = f"{p.card_id}card.png"
+        image_url = f"{config.IMAGE_BASE_URL}/{filename}"
+        
         response.append(CardProductResponse(
             card_id=p.card_id,
             card_name=p.card_name,
@@ -48,14 +49,69 @@ def get_card_products(
     return response
 
 # -------------------------------------------------------------------
-# 2. 카드 직접 등록 (수정됨)
+# [핵심 수정] 카드 상세 정보 조회 (ID 또는 이름으로 검색)
+# -------------------------------------------------------------------
+class CardDetailResponse(SQLModel):
+    card_id: str
+    card_name: str
+    card_company: str
+    card_image_url: str
+    benefits: List[dict]
+
+@router.get("/products/{card_identifier}", response_model=CardDetailResponse)
+def get_card_detail(
+    card_identifier: str,
+    db: Session = Depends(deps.get_db)
+):
+    # 1. URL 디코딩 (예: "%EC%8B%A0%ED..." -> "신한카드 Mr.Life")
+    decoded_id = urllib.parse.unquote(card_identifier)
+
+    # 2. [우선순위 1] ID로 검색
+    card = db.exec(select(CardMaster).where(CardMaster.card_id == decoded_id)).first()
+    
+    # 3. [우선순위 2] 없으면 이름으로 검색 (404 에러 해결!)
+    if not card:
+        card = db.exec(select(CardMaster).where(CardMaster.card_name == decoded_id)).first()
+
+    if not card:
+        raise HTTPException(status_code=404, detail=f"Card not found: {decoded_id}")
+
+    # 4. 혜택 정보 조회
+    benefits = db.exec(select(CardBenefit).where(CardBenefit.card_id == card.card_id)).all()
+    
+    # 5. 이미지 URL 처리
+    filename = getattr(card, "image_filename", f"{card.card_id}card.png")
+    if not filename: 
+        filename = f"{card.card_id}card.png"
+    image_url = f"{config.IMAGE_BASE_URL}/{filename}"
+
+    # 6. 혜택 데이터 가공
+    benefit_list = []
+    for b in benefits:
+        benefit_list.append({
+            "benefit_id": b.benefit_id,
+            "category": b.category,
+            "summary": b.summary,
+            "detail": b.json_rawdata
+        })
+
+    return CardDetailResponse(
+        card_id=card.card_id,
+        card_name=card.card_name,
+        card_company=card.card_company,
+        card_image_url=image_url,
+        benefits=benefit_list
+    )
+
+# -------------------------------------------------------------------
+# 2. 카드 직접 등록
 # -------------------------------------------------------------------
 class CardRegisterRequest(SQLModel):
     card_number: str          
     cvc: str                  
     expiry_date: str          
     password_2digit: str      
-    card_product_id: str      # 사용자가 선택한 카드 상품 ID (예: '13')
+    card_product_id: str
 
 @router.post("/register")
 def register_card(
@@ -65,12 +121,10 @@ def register_card(
 ):
     user_id = payload.get("user_id")
     
-    # 1. 유효성 검사 (형식만 체크)
     clean_number = request.card_number.replace("-", "").strip()
     if len(clean_number) != 16:
         raise HTTPException(status_code=400, detail="카드 번호는 16자리여야 합니다.")
 
-    # 2. 카드 상품 정보 조회
     card_product = db.exec(
         select(CardMaster).where(CardMaster.card_id == request.card_product_id)
     ).first()
@@ -78,24 +132,20 @@ def register_card(
     if not card_product:
         raise HTTPException(status_code=404, detail="존재하지 않는 카드 상품입니다.")
 
-    # [수정] 3. 중복 등록 확인 (이제 card_product_id로 체크)
-    # 사용자가 동일한 상품(예: 신한 Mr.Life)을 중복 등록하는 것을 방지
     existing_asset = db.exec(
         select(UserAsset)
         .where(UserAsset.user_id == user_id)
-        .where(UserAsset.external_account_id == request.card_product_id) # 카드ID로 비교
+        .where(UserAsset.external_account_id == request.card_product_id)
     ).first()
 
     if existing_asset:
         raise HTTPException(status_code=409, detail="이미 등록된 카드 상품입니다.")
 
     try:
-        # [수정] 4. 자산 등록 (external_account_id = card_id)
         new_asset = UserAsset(
             user_id=user_id,
             asset_type=AssetType.card,
             institution_name=card_product.card_company,
-            # 요청하신 대로 '선택한 카드의 card_id'를 저장합니다.
             external_account_id=card_product.card_id,       
             external_account_name=card_product.card_name,   
             balance=0,
@@ -112,9 +162,8 @@ def register_card(
         print(f"Card Register Error: {e}")
         raise HTTPException(status_code=500, detail="카드 등록 중 오류가 발생했습니다.")
 
-
 # -------------------------------------------------------------------
-# 3. 내 자산(카드) 조회 (수정됨)
+# 3. 내 자산 조회
 # -------------------------------------------------------------------
 @router.get("/", response_model=List[AssetResponse])
 def read_my_assets(
@@ -131,9 +180,6 @@ def read_my_assets(
     
     for asset in assets:
         asset_res = AssetResponse.model_validate(asset)
-        
-        # [수정] 이미지 URL 생성 로직 단순화
-        # 이제 external_account_id가 곧 card_id이므로 바로 URL 생성 가능
         if asset.external_account_id:
              asset_res.card_image_url = f"{config.IMAGE_BASE_URL}/{asset.external_account_id}card.png"
         else:
@@ -142,7 +188,6 @@ def read_my_assets(
         response_list.append(asset_res)
     
     return response_list
-
 
 # -------------------------------------------------------------------
 # 4. 기타 기능 (연동, 삭제)
@@ -170,7 +215,6 @@ def delete_asset(
     payload: dict = Depends(get_current_user_payload)
 ):
     user_id = payload.get("user_id")
-    
     asset = db.exec(
         select(UserAsset)
         .where(UserAsset.asset_id == asset_id)
@@ -182,7 +226,6 @@ def delete_asset(
 
     try:
         card_id = asset.external_account_id
-        
         transactions = db.exec(
             select(CardTransaction)
             .where(CardTransaction.card_id == card_id)
@@ -191,9 +234,7 @@ def delete_asset(
         
         for tx in transactions:
             db.delete(tx)
-
         db.delete(asset)
-        
         db.commit()
         return {"message": "연동이 해제되었습니다.", "deleted_asset_id": asset_id}
         
