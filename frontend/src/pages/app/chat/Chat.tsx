@@ -208,7 +208,7 @@ const handleSendMessage = async () => {
 
           for (const card_r of recommend_data.cards){
             merchant = card_r.merchant_name;
-            price_val = card_r.price_val;
+            price_val = card_r.price;
 
             const newCard =
             {
