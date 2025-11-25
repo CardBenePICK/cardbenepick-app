@@ -12,6 +12,18 @@ import { HelpCircle, ChevronDown } from 'lucide-react'; // 상단 import에 추�
 
 // Chat.tsx 상단
 
+// json 형태 파악 함수
+export const isValidJson = (value: string): boolean => {
+  if (typeof value !== "string") return false;
+  try {
+    const parsed = JSON.parse(value);
+    // 단순히 파싱만 성공하면 JSON으로 볼 것인지, 객체/배열 형태여야 하는지 체크
+    return typeof parsed === "object" && parsed !== null;
+  } catch (e) {
+    return false;
+  }
+};
+
 // --- [임시 1] 고정된 카드 데이터 (백엔드 대신 여기서 내용 수정) ---
 const FIXED_CARD_DATA = [
   {
@@ -57,13 +69,18 @@ const RecommendationCardItem = ({ card, navigate }: any) => {
       >
         <div className="flex items-center gap-3">
           {/* 카드 이미지 (네모 박스) */}
-          <div className={`w-10 h-6 rounded bg-gradient-to-r ${card.color} shadow-sm`}></div>
-          
+          {/* <div className={`w-10 h-6 rounded bg-gradient-to-r ${card.color} shadow-sm`}></div> */}
+          <img 
+            src={`/images/${card.id}card.png`}
+            alt={card.name} 
+            className="w-15 h-10 rounded shadow-sm object-contain rotate-90 mr-2" 
+            // className="w-24 h-16 object-contain rotate-90"
+          />
           {/* 텍스트 정보 */}
           <div className="text-left">
             <h3 className="text-sm font-bold text-gray-800">{card.name}</h3>
             <p className="text-xs text-blue-600 font-medium">
-              예상 혜택: {card.benefit}
+              예상 혜택: {card.benefit} 원
             </p>
           </div>
         </div>
@@ -147,15 +164,50 @@ const handleSendMessage = async () => {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ 'query': userMessage })
       });
+      
 
-      // 2. 응답이 오면 내용은 무시하고! 
-      //    우리가 준비한 'FIXED_CARD_DATA'를 메시지에 담음
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      console.log("chat-response", response)
+      // 서버 응답 처리 (JSON으로 온다고 가정)
+      const data = await response.json();
       
-      // 봇 멘트 먼저 날리고
-      addMessage("스타벅스점에서 2,500원 결제 시, 추천 카드를 찾았습니다!", 'bot');
-      
-      // ★ 여기서 고정된 카드 데이터를 넣어줍니다! ★
-      addMessage("", 'bot', { recommendations: FIXED_CARD_DATA });
+      // 서버 응답 구조에 맞춰 메시지 추가
+      // 예: { "response": "추천 카드는...", "cards": [...] } 라고 가정
+      if (isValidJson(data.response)){
+        const recommend_data = JSON.parse(data.response);
+        if ("recommended_card" in recommend_data){ // 혜택 계산을 해서 나왔을 경우
+          console.log("recommended_card 가 있습니다.")
+          
+          
+          const recommend_cards_data = []
+          let merchant = ""
+          let price_val = ""
+
+          for (const card_r of recommend_data.cards){
+            merchant = card_r.merchant_name;
+            price_val = card_r.price_val;
+
+            const newCard =
+            {
+              id: card_r.card_id,
+              name: card_r.card,
+              benefit: card_r.bene_val,
+              desc: card_r.final_val +'원 결제 예정',
+              detail: card_r.reason,
+              color: 'from-blue-700 to-blue-500'
+            };
+            recommend_cards_data.push(newCard)
+          }
+          addMessage(merchant + "에서 " + price_val + "원 결제 시, 추천 카드를 찾았습니다!", 'bot');
+          addMessage("", 'bot', { recommendations: recommend_cards_data });
+        }
+        addMessage(data.response + "\n\n 이렇습니다." || "답변을 받았습니다.", 'bot', { recommendations: data.cards });  
+      }else{
+        addMessage("data.response가 json 형태가 아닙니다.\n" + data.response + "\n\n 이렇습니다." || "답변을 받았습니다.", 'bot', { recommendations: data.cards }); 
+      }
+         
 
     } catch (error) {
       console.error('Error:', error);
