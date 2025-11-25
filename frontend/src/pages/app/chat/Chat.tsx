@@ -187,7 +187,7 @@ const handleSendMessage = async () => {
     const token = localStorage.getItem("access_token");
     try{
       // 1. 로컬 스토리지에서 토큰 가져오기
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("token");
 
       // 2. 서버에 요청 (헤더에 토큰 추가)
       const response = await fetch('http://localhost:8090/chat_react', {
