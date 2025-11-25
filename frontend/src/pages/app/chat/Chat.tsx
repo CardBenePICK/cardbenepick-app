@@ -12,6 +12,18 @@ import { HelpCircle, ChevronDown } from 'lucide-react'; // 상단 import에 추�
 
 // Chat.tsx 상단
 
+// json 형태 파악 함수
+export const isValidJson = (value: string): boolean => {
+  if (typeof value !== "string") return false;
+  try {
+    const parsed = JSON.parse(value);
+    // 단순히 파싱만 성공하면 JSON으로 볼 것인지, 객체/배열 형태여야 하는지 체크
+    return typeof parsed === "object" && parsed !== null;
+  } catch (e) {
+    return false;
+  }
+};
+
 // --- [임시 1] 고정된 카드 데이터 (백엔드 대신 여기서 내용 수정) ---
 const FIXED_CARD_DATA = [
   {
@@ -35,7 +47,7 @@ const FIXED_CARD_DATA = [
 // --- [임시 2] 카드 UI 컴포넌트 ---
 // import { HelpCircle, ChevronDown } from 'lucide-react'; // 상단 import에 추가 필요!
 
-const RecommendationCardItem = ({ card, navigate }: any) => {
+const RecommendationCardItem = ({ card, navigate, isBest }: any) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleCardClick = () => {
@@ -51,19 +63,49 @@ const RecommendationCardItem = ({ card, navigate }: any) => {
   return (
     <div className="w-full max-w-sm mb-2">
       {/* 1. 카드 메인 영역 */}
+
       <div 
         onClick={handleCardClick}
-        className="relative flex items-center justify-between p-4 bg-white border rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all"
+        className={`
+          relative flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-200
+          ${isBest 
+            // 🥇 1등 스타일 (Hover 추가)
+            // 기본: 파란 테두리 + 연한 배경
+            // Hover: 배경이 조금 더 진해짐(blue-100) + 그림자 더 커짐(shadow-lg) + 살짝 위로 떠오름(-translate-y-1)
+            ? "bg-blue-50 border-2 border-blue-500 shadow-md z-10 hover:bg-blue-100 hover:shadow-lg hover:-translate-y-1"   
+            
+            // 🥈 일반 스타일 (Hover 추가)
+            // 기본: 흰색 배경
+            // Hover: 회색 배경(gray-50) + 그림자 커짐(shadow-md) + 살짝 위로 떠오름(-translate-y-0.5)
+            : "bg-white border border-gray-200 shadow-sm hover:shadow-md hover:bg-gray-50 hover:-translate-y-0.5" 
+          }
+        `}
       >
+      {/* 🥇 1등일 경우 왼쪽 상단에 뱃지 추가 */}
+      {isBest && (
+        <span className="absolute -top-3 left-4 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
+          BEST 추천
+        </span>
+      )}
+
+      {/* <div 
+        onClick={handleCardClick}
+        className="relative flex items-center justify-between p-4 bg-white border rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all"
+      > */}
         <div className="flex items-center gap-3">
           {/* 카드 이미지 (네모 박스) */}
-          <div className={`w-10 h-6 rounded bg-gradient-to-r ${card.color} shadow-sm`}></div>
-          
+          {/* <div className={`w-10 h-6 rounded bg-gradient-to-r ${card.color} shadow-sm`}></div> */}
+          <img 
+            src={`/images/${card.id}card.png`}
+            alt={card.name} 
+            className="w-15 h-10 rounded shadow-sm object-contain rotate-90 mr-2" 
+            // className="w-24 h-16 object-contain rotate-90"
+          />
           {/* 텍스트 정보 */}
           <div className="text-left">
             <h3 className="text-sm font-bold text-gray-800">{card.name}</h3>
             <p className="text-xs text-blue-600 font-medium">
-              예상 혜택: {card.benefit}
+              예상 혜택: {card.benefit} 원
             </p>
           </div>
         </div>
@@ -140,6 +182,7 @@ const handleSendMessage = async () => {
     setInputValue('');
     setIsLoading(true); // 로딩 시작 (... 나옴)
 
+
     // 1. 로컬 스토리지에서 토큰 가져오기
     const token = localStorage.getItem("access_token");
     try{
@@ -167,13 +210,53 @@ const handleSendMessage = async () => {
     //   });
 
       // 2. 응답이 오면 내용은 무시하고! 
-      //    우리가 준비한 'FIXED_CARD_DATA'를 메시지에 담음
+      //    우리가 준비한 'FIXED_CARD_DATA'를 메시지에 담음    
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      console.log("chat-response", response)
+      // 서버 응답 처리 (JSON으로 온다고 가정)
+      const data = await response.json();
       
-      // 봇 멘트 먼저 날리고
-      addMessage("스타벅스점에서 2,500원 결제 시, 추천 카드를 찾았습니다!", 'bot');
-      
-      // ★ 여기서 고정된 카드 데이터를 넣어줍니다! ★
-      addMessage("", 'bot', { recommendations: FIXED_CARD_DATA });
+      // 서버 응답 구조에 맞춰 메시지 추가
+      // 예: { "response": "추천 카드는...", "cards": [...] } 라고 가정
+      if (isValidJson(data.response)){
+        const recommend_data = JSON.parse(data.response);
+        if ("recommended_card" in recommend_data){ // 혜택 계산을 해서 나왔을 경우         
+          
+          const recommend_cards_data = []
+          let merchant = ""
+          let price_val = ""
+
+          for (const card_r of recommend_data.cards){
+            merchant = card_r.merchant_name;
+            price_val = card_r.price;
+
+            const newCard =
+            {
+              id: card_r.card_id,
+              name: card_r.card,
+              benefit: card_r.bene_val,
+              desc: card_r.final_val +'원 결제 예정',
+              detail: card_r.reason,
+              color: 'from-blue-700 to-blue-500'
+            };
+            recommend_cards_data.push(newCard)
+          }
+
+          // 혜택이 가장 높은 카드가 가장 위로 올라오도록.
+          recommend_cards_data.sort((a, b) => b.benefit - a.benefit);
+
+          addMessage(merchant + "에서 " + price_val + "원 결제 시, 추천 카드를 찾았습니다!", 'bot');
+          addMessage("", 'bot', { recommendations: recommend_cards_data });
+        }
+        // addMessage(data.response + "\n\n 이렇습니다." || "답변을 받았습니다.", 'bot', { recommendations: data.cards });  
+      }else{
+        // json 형태로 받은 것이 아닌 답변 그대로 챗봇으로 표현하면 된다.
+        addMessage(data.response || "답변을 받았습니다.", 'bot', { recommendations: data.cards }); 
+      }
+         
 
     } catch (error) {
       console.error('Error:', error);
@@ -305,6 +388,7 @@ const handleSendMessage = async () => {
                       key={index} 
                       card={card} 
                       navigate={navigate} 
+                      isBest={index === 0} // 처음 부분을 체크하게 하려고.
                     />
                   ))}
                 </div>
