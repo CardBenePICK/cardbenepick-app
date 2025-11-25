@@ -23,7 +23,7 @@ const NotificationItem = ({ item }: Props) => {
   const { alarm_type, content, created_at } = item;
 
   // ----------------------------------------------------------------
-  // [Type 1] 카드 실적 알림 (파란색 카드)
+  // [Type 1] 카드 실적 알림 (파란색 카드) -> 여기가 보유 카드 목록입니다!
   // ----------------------------------------------------------------
   if (alarm_type === 1 && Array.isArray(content)) {
     const cardList = content as NotificationContent[];
@@ -62,7 +62,11 @@ const NotificationItem = ({ item }: Props) => {
                 <div 
                   key={idx} 
                   className="flex items-start p-4 border-b border-slate-100 last:border-0 hover:bg-slate-100 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/app/card/${card.card_name}`)}
+                  // [수정됨] 클릭 시 isOwned: true를 함께 전달합니다.
+                  // 실적 알림에 뜬다는 건 무조건 '내 카드'라는 뜻이니까요.
+                  onClick={() => navigate(`/app/card/${encodeURIComponent(card.card_name)}`, { 
+                      state: { isOwned: true } 
+                  })}
                 >
                   <div className="mr-4 flex-shrink-0">
                     {card.image_filename ? (
@@ -108,7 +112,6 @@ const NotificationItem = ({ item }: Props) => {
   if (alarm_type === 3) {
     const notiContent = content as DBContent;
     return (
-      // [수정] hover 효과만 남기고, 무조건 흰색 배경(bg-white) 사용
       <div className="flex p-4 border-b border-border bg-white hover:bg-gray-50 transition-colors cursor-pointer">
         <div className="mr-4 mt-1">
           <div className="p-2 bg-green-50 rounded-full text-green-600">
@@ -118,11 +121,9 @@ const NotificationItem = ({ item }: Props) => {
 
         <div className="flex-1">
           <div className="font-bold text-sm mb-1 text-gray-800">
-             {/* [수정] 하드코딩 제거: DB title 사용 */}
              {notiContent.title || "주간 지출 리포트"} 
           </div>
           <div className="text-xs text-gray-500">
-             {/* [수정] DB content 사용 (없으면 message, 그것도 없으면 기본값) */}
              {notiContent.content || notiContent.message || "지난주 소비 내역을 분석해드렸어요."}
           </div>
           <div className="text-[10px] text-gray-400 mt-2">
@@ -137,25 +138,20 @@ const NotificationItem = ({ item }: Props) => {
   // [Type 2] 공지사항 (빨간색 확성기)
   // ----------------------------------------------------------------
   const notiContent = content as DBContent;
-  // [수정] isOldNotice 계산 로직은 냅두거나 지워도 되지만, 스타일에는 적용 안 함
 
   return (
-    // [수정] old 변수 사용 안 함 -> 무조건 선명한 스타일 적용
     <div className="flex p-4 border-b border-border bg-white hover:bg-gray-50 transition-colors">
       <div className="mr-4 mt-1">
-        {/* 무조건 빨간색 아이콘 */}
         <div className="p-2 rounded-full bg-red-50 text-red-500">
           <Megaphone className="w-5 h-5" />
         </div>
       </div>
 
       <div className="flex-1">
-        {/* [수정] 하드코딩 제거: DB title 사용, 색상도 진한 회색 고정 */}
         <div className="font-bold text-sm mb-1 text-gray-800">
           {notiContent.title || "공지사항"}
         </div>
         
-        {/* [수정] 내용 표시 및 색상 고정 */}
         <div className="text-xs text-gray-500">
           {notiContent.content || notiContent.message || "새로운 소식이 있습니다."}
         </div>
