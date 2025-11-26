@@ -4,6 +4,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, 
   ShoppingBag, Coffee, Bus, Fuel, Utensils, ShoppingCart, Smartphone, Ticket 
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   format, parseISO, isSameDay, getDay, getDate, 
@@ -37,13 +38,25 @@ const getDayKo = (dateStr: string) => {
   return days[day];
 };
 
+// [1] 서버에서 받아올 때의 모양 (DB 컬럼명 기준)
+// 이 타입은 fetch 안에서만 잠깐 씁니다.
+type TransactionResponse = {
+  id: number;
+  amount_krw: number;
+  merchant_name: string;
+  card_issuer_name?: string; // 혹시 DB 컬럼명이 이거라면
+  transaction_date: string;
+};
+
+// [2] 화면(UI)에서 사용할 모양 (기존 코드와 호환)
+// 컴포넌트 상태(state)는 이 타입을 따릅니다.
 type Transaction = {
   id: string;
-  amount: number;
-  merchant: string;
+  amount: number;      // UI는 amount를 원함
+  merchant: string;    // UI는 merchant를 원함
   card_company: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM
+  date: string;
+  time: string;
 };
 
 const SpendingCalendar = () => {
@@ -53,16 +66,35 @@ const SpendingCalendar = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
-  // 1. 데이터 로드
+  // 1. 데이터 로드 (수정됨)
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth() + 1;
+        
+        // API 호출
         const res = await fetchWithAuth(`http://localhost:8000/api/analysis/calendar?year=${year}&month=${month}`);
+        
         if (res.ok) {
-          const data = await res.json();
-          setTransactions(data);
+          const data: TransactionResponse[] = await res.json();
+          
+          // [핵심] DB 데이터를 프론트엔드 UI용 포맷으로 매핑
+          const formattedData: Transaction[] = data.map((tx) => {
+            const dateObj = new Date(tx.transaction_date);
+            return {
+              id: tx.id.toString(),
+              amount: tx.amount_krw, // amount_krw -> amount
+              merchant: tx.merchant_name, // merchant_name -> merchant
+              card_company: tx.card_issuer_name || '카드',
+              // "YYYY-MM-DD" 형식으로 변환
+              date: tx.transaction_date.split('T')[0], 
+              // "HH:MM" 형식으로 시간 추출
+              time: dateObj.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+            };
+          });
+
+          setTransactions(formattedData);
         }
       } catch (error) {
         console.error("Failed to load transactions", error);
@@ -131,15 +163,20 @@ const SpendingCalendar = () => {
   return (
     <div className="app-container bg-white min-h-screen flex flex-col relative">
       {/* --- Header --- */}
-      <div className="px-4 py-3 flex items-center justify-between sticky top-0 bg-white z-20">
-        <div className="flex items-center gap-2">
-          <button onClick={() => navigate(-1)}><ArrowLeft className="w-6 h-6" /></button>
-          <h1 className="text-xl font-bold">가계부</h1>
-        </div>
+      <div className="flex items-center p-4 border-b bg-white sticky top-0 z-10">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => navigate(-1)} 
+          className="mr-3"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <h1 className="text-lg font-semibold">가계부</h1>
       </div>
 
       {/* --- 상단 월 네비게이션 & 요약 --- */}
-      <div className="px-6 pt-2 pb-6 bg-white z-10 shadow-sm relative">
+      <div className="px-6 pt-6 pb-6 bg-white z-10 shadow-sm relative">
         <div className="flex items-center gap-2 mb-4">
           <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft className="w-5 h-5 text-gray-500" /></button>
           <span className="text-xl font-bold text-gray-900">

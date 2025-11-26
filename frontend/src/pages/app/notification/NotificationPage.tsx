@@ -25,6 +25,28 @@ const NotificationPage = () => {
     loadData();
   }, []);
 
+  // [추가된 부분 1] 알림 클릭 시 실행될 함수
+  const handleNotificationClick = (noti: Notification) => {
+    const contentObj = !Array.isArray(noti.content) ? noti.content : null;
+    
+    const title = contentObj ? (contentObj as any).title : '';
+    const message = contentObj ? (contentObj as any).message : '';
+
+    // 3번 타입(주간리포트)이거나 제목에 '주간'이 들어가면 달력으로 이동
+    if (
+          noti.alarm_type === 3 || 
+          (title && title.includes('주간')) || 
+          (message && message.includes('주간'))
+        ) {
+          navigate('/app/analysis/calendar');
+        }
+        // [추가된 부분] 2. 공지사항(Type 2) -> 상세 페이지로 이동
+        else if (noti.alarm_type === 2) {
+          // noti 객체를 통째로 state에 담아서 보냅니다
+          navigate(`/app/notification/${noti.id}`, { state: { notice: noti } });
+        }
+      };
+
   const now = new Date();
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -59,8 +81,12 @@ const NotificationPage = () => {
                 </div>
                 <div className="bg-white">
                   {recentNotifications.map((noti) => (
-                    // onClick 제거됨 (내부에서 처리)
-                    <NotificationItem key={noti.id} item={noti} />
+                    <NotificationItem 
+                      key={noti.id} 
+                      item={noti}
+                      // [추가된 부분 2] 클릭 이벤트를 아이템에 전달
+                      onClick={() => handleNotificationClick(noti)} 
+                    />
                   ))}
                 </div>
               </div>
@@ -73,8 +99,12 @@ const NotificationPage = () => {
                 </div>
                 <div className="bg-white">
                   {oldNotifications.map((noti) => (
-                    // onClick 제거됨 (내부에서 처리)
-                    <NotificationItem key={noti.id} item={noti} />
+                    <NotificationItem 
+                      key={noti.id} 
+                      item={noti}
+                      // [추가된 부분 2] 여기도 동일하게 전달
+                      onClick={() => handleNotificationClick(noti)}
+                    />
                   ))}
                 </div>
               </div>

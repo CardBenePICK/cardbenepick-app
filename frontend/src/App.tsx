@@ -36,6 +36,7 @@ import SpendingDetail from "./pages/app/all/SpendingDetail";
 import SpendingCalendar from "./pages/app/calendar/SpendingCalendar"; // [NEW] 소비 달력 컴포넌트 추가
 import AnalysisLoading from "./pages/app/all/AnalysisLoading";
 import CardPerformance from "./pages/app/all/CardPerformance";
+import NoticeDetail from './pages/app/notification/NoticeDetail';
 
 // 3d. 사용자 (app/user)
 import MyPage from "./pages/app/user/MyPage";
@@ -83,6 +84,7 @@ const App = () => (
             <Route path="card/:cardId" element={<CardDetail />} />
             {/* 주소: /app/notifications */}
             <Route path="notifications" element={<NotificationPage />} />
+            <Route path="notification/:id" element={<NoticeDetail />} />
           </Route>
 
           {/* CATCH-ALL "*" ROUTE */}
