@@ -33,6 +33,7 @@ import Chat from "./pages/app/chat/Chat";
 // 3c. '전체' 메뉴 (app/all)
 import Analysis from "./pages/app/all/Analysis";
 import SpendingDetail from "./pages/app/all/SpendingDetail";
+import SpendingCalendar from "./pages/app/calendar/SpendingCalendar"; // [NEW] 소비 달력 컴포넌트 추가
 import AnalysisLoading from "./pages/app/all/AnalysisLoading";
 import CardPerformance from "./pages/app/all/CardPerformance";
 
@@ -61,10 +62,7 @@ const App = () => (
           <Route path="/link-mydata" element={<LinkMyData />} />
           <Route path="/survey" element={<Survey />} />
           
-          {/* --- [수정됨] --- */}
-          {/* 2. 새 라우트 추가 */}
           <Route path="/analysis-loading" element={<AnalysisLoading />} />
-          {/* --- [수정 완료] --- */}
 
           <Route path="/recommendations" element={<Recommendations />} />
 
@@ -77,8 +75,9 @@ const App = () => (
             <Route path="wallet/verify" element={<VerifyCard />} />
             
             <Route path="analysis" element={<Analysis />} />
-            <Route path="mypage" element={<MyPage />} /> {/* 2. 마이페이지 라우트 추가 */}
+            <Route path="mypage" element={<MyPage />} />
             <Route path="analysis/detail" element={<SpendingDetail />} />
+            <Route path="analysis/calendar" element={<SpendingCalendar />} /> {/* [NEW] 소비 달력 라우트 연결 */}
             <Route path="performance" element={<CardPerformance />} />
 
             <Route path="card/:cardId" element={<CardDetail />} />

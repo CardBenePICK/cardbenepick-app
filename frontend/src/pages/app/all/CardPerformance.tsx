@@ -22,6 +22,7 @@ interface RealtimeCardData {
   last_month_usage: number;
   requirement: number;
   image_url: string; // 파일명 대신 전체 URL 사용
+  card_number?: string; // navigate 시 fallback용(있다면)
 }
 
 const CardPerformance = () => {
@@ -34,24 +35,25 @@ const CardPerformance = () => {
       try {
         // [수정] 존재하지 않는 API 대신, 실제 작동하는 '내 자산 조회' API 사용
         const res = await fetchWithAuth('http://localhost:8000/api/assets/');
-        
+
         if (res.ok) {
           const assets = await res.json();
-          
+
           // [데이터 변환] 백엔드 데이터(UserAsset)를 화면에 맞는 형태(RealtimeCardData)로 변환
-          const formattedData = assets.map((asset: any) => ({
+          const formattedData: RealtimeCardData[] = assets.map((asset: any) => ({
             card_id: asset.external_account_id || asset.external_account_name, // 상세 이동용 ID
             card_name: asset.external_account_name || asset.institution_name,
             // balance가 마이너스일 수 있으므로 절대값 처리
             current_usage: Math.abs(asset.balance),
             // 지난달 실적은 DB에 없으므로, 현재 실적과 비슷하게 임의 설정 (실제 서비스라면 별도 API 필요)
-            last_month_usage: Math.floor(Math.abs(asset.balance) * 0.9), 
+            last_month_usage: Math.floor(Math.abs(asset.balance) * 0.9),
             // 목표 실적은 DB에 없으므로 기본값 30만원 설정 (또는 혜택 분석 로직 필요)
             requirement: 300000,
             // 이미지 URL 생성 (ID 기반)
-            image_url: asset.external_account_id 
+            image_url: asset.external_account_id
               ? `http://localhost:8080/${asset.external_account_id}card.png`
-              : 'http://localhost:8080/placeholder.svg'
+              : 'http://localhost:8080/placeholder.svg',
+            card_number: asset.card_number, // 있을 경우용(선택)
           }));
 
           setCards(formattedData);
@@ -65,10 +67,10 @@ const CardPerformance = () => {
     loadData();
   }, []);
 
-  // 달성률 계산
+  // 달성률 계산 (정수 + 100% 상한)
   const getProgressPercentage = (current: number, required: number) => {
     if (required === 0) return 100;
-    return Math.min((current / required) * 100, 100);
+    return Math.min(Math.round((current / required) * 100), 100);
   };
 
   // 상태 배지 정보
@@ -172,28 +174,39 @@ const CardPerformance = () => {
                 card.current_usage,
                 card.requirement,
               );
+              // [수정] 정수 + 100 상한 달성률
               const percent = getProgressPercentage(
                 card.current_usage,
                 card.requirement,
               );
+
               return (
                 <Card
                   key={index}
                   className="shadow-sm border-gray-100 overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
-                  // [추가] 클릭 시 아까 만든 상세 실적 페이지로 이동 (인코딩 적용)
-                  onClick={() => navigate(`/app/performance/${encodeURIComponent(card.card_id)}`)}
+                  // [수정] 클릭 시 카드 상세 페이지로 이동
+                  onClick={() =>
+                    navigate(
+                      `/app/card/${encodeURIComponent(
+                        card.card_id || card.card_number || '',
+                      )}`,
+                      { state: { isOwned: true } },
+                    )
+                  }
                 >
                   <CardHeader className="pb-3 bg-white border-b border-gray-50">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        {/* 🔹 카드 이미지 처리 수정 */}
+                        {/* 카드 이미지 */}
                         <img
-                            src={card.image_url}
-                            alt={card.card_name}
-                            className="w-16 h-10 object-contain"
-                            onError={(e) => { e.currentTarget.src = "http://localhost:8080/placeholder.svg"; }}
+                          src={card.image_url}
+                          alt={card.card_name}
+                          className="w-16 h-10 object-contain"
+                          onError={(e) => {
+                            e.currentTarget.src =
+                              'http://localhost:8080/placeholder.svg';
+                          }}
                         />
-
                         <div>
                           <CardTitle className="text-sm font-bold">
                             {card.card_name}
@@ -257,11 +270,14 @@ const CardPerformance = () => {
                     >
                       {/* 왼쪽: 이미지 + 텍스트 */}
                       <div className="flex items-center gap-3">
-                         <img
-                            src={card.image_url}
-                            alt={card.card_name}
-                            className="w-10 h-10 object-contain"
-                            onError={(e) => { e.currentTarget.src = "http://localhost:8080/placeholder.svg"; }}
+                        <img
+                          src={card.image_url}
+                          alt={card.card_name}
+                          className="w-10 h-10 object-contain"
+                          onError={(e) => {
+                            e.currentTarget.src =
+                              'http://localhost:8080/placeholder.svg';
+                          }}
                         />
 
                         <div className="flex flex-col">
