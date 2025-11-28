@@ -1,13 +1,14 @@
 import uuid
 import traceback # [추가] 상세 에러 로그용
+from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, SQLModel
 
 from app.api import deps
 from app.core.security import get_current_user_payload
-# 모델 임포트 (CardMaster 불필요하면 제거, 필요하면 포함)
-from app.db.models import UserAsset, CardTransaction 
+# [수정된 부분: db insert] BenefitHistory 모델 임포트 추가
+from app.db.models import UserAsset, CardTransaction, BenefitHistory
 
 router = APIRouter()
 
@@ -16,6 +17,9 @@ class PaymentRequest(SQLModel):
     amount: int
     merchant_name: str
     installment: int = 0
+    # [수정된 부분: db insert] 혜택 정보 필드 추가 (Optional)
+    benefit_id: Optional[str] = None
+    discount_amount: Optional[int] = 0
 
 @router.post("/pay")
 def process_payment(
@@ -43,9 +47,10 @@ def process_payment(
         # 이렇게 해야 저장 후 refresh 할 때 PK 불일치 에러가 안 남
         now = datetime.now().replace(microsecond=0)
 
+        tx_id = str(uuid.uuid4())
         # 2. 거래 내역 생성
         new_tx = CardTransaction(
-            transaction_id=str(uuid.uuid4()),
+            transaction_id= tx_id,
             user_id=user_id,
             card_id=asset.external_account_id, 
             card_company=asset.institution_name,
@@ -56,17 +61,40 @@ def process_payment(
         )
 
         db.add(new_tx)
-        db.commit()
+        # --- [디버깅 추가] ---
+        print("="*30)
+        print(f"DEBUG: 요청 받은 benefit_id: {request.benefit_id}")
+        print(f"DEBUG: 요청 받은 discount_amount: {request.discount_amount}")
         
-        # 여기서 에러가 났던 것임 (저장된 데이터를 다시 조회해서 ID 등을 채우는 과정)
+        # [수정된 부분: db insert] 혜택 이력 생성 (benefit_id가 있고 할인 금액이 0보다 클 때)
+        if request.benefit_id and request.discount_amount and request.discount_amount > 0:
+            print("DEBUG: >> IF 조건문 진입 성공!")
+            new_benefit = BenefitHistory(
+                user_id=user_id,
+                benefit_id=request.benefit_id,
+                transaction_id=tx_id, # 위에서 생성한 tx_id 연결
+                applied_amount=request.discount_amount,
+                usage_date=now
+            )
+            # [요청하신 부분] new_benefit 내용 출력
+            print(f"DEBUG: 생성된 new_benefit 객체: {new_benefit}")
+            db.add(new_benefit)
+        else:
+            print("DEBUG: >> 조건 불충족으로 BenefitHistory 생성 건너뜀")
+        print("="*30)
+        
+        db.commit()
         db.refresh(new_tx) 
+
 
         return {
             "message": "결제가 승인되었습니다.",
             "transaction_id": new_tx.transaction_id,
             "amount": new_tx.amount_krw,
             "merchant": new_tx.merchant_name,
-            "approved_at": new_tx.transaction_date
+            "approved_at": new_tx.transaction_date,
+            # 응답에도 혜택 적용 여부 포함 가능
+            "benefit_applied": bool(request.benefit_id and request.discount_amount > 0)
         }
 
     except Exception as e:

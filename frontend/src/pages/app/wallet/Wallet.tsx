@@ -103,8 +103,15 @@ const Wallet = () => {
   });
 
   const incomingPayment = location.state?.payment; 
+  // [수정된 부분] 혜택 정보 추출
+  const benefitId = incomingPayment?.benefit_id;
+  const discountAmount = incomingPayment?.discount_amount;
+  
   const [merchant, setMerchant] = useState<string>(incomingPayment?.merchant || '');
   const [amount, setAmount] = useState<string>(incomingPayment?.amount ? String(incomingPayment.amount) : '');
+
+  // [추가] 혜택 금액 상태 관리
+  const [benefitAmount, setBenefitAmount] = useState<string>('');
 
   useEffect(() => {
     fetchAssets();
@@ -137,7 +144,12 @@ const Wallet = () => {
     const recommendedCardId = location.state?.recommendedCardId;
     
     if (recommendedCardId) {
-      const targetIndex = carouselItems.findIndex(item => item.id === recommendedCardId);
+      // [수정] ID 매칭 로직 개선: asset_id 뿐만 아니라 external_account_id도 확인
+      const targetIndex = carouselItems.findIndex(item => 
+        item.id === String(recommendedCardId) || 
+        (item.originalAsset && item.originalAsset.external_account_id === String(recommendedCardId))
+      );
+
       if (targetIndex !== -1) {
         api.scrollTo(targetIndex); 
         setActiveIndex(targetIndex);
@@ -145,6 +157,12 @@ const Wallet = () => {
       if (location.state?.payment) {
           setMerchant(location.state.payment.merchant);
           setAmount(String(location.state.payment.amount));
+
+          // [추가] 챗봇에서 혜택 금액이 넘어왔다면 설정
+          if (location.state.payment.discount_amount) {
+              setBenefitAmount(String(location.state.payment.discount_amount));
+          }
+          
           setIsModalOpen(true); 
       }
     } else {
@@ -156,26 +174,36 @@ const Wallet = () => {
     };
     api.on("select", onSelect);
     return () => { api.off("select", onSelect); };
-  }, [api, location.state, navigate, assets]);
+  }, [api, location.state, navigate, assets]); // assets 의존성 추가 (carouselItems 재계산 반영)
 
   const handlePayment = async () => {
     const currentItem = carouselItems[activeIndex];
     if (!currentItem.originalAsset) return;
 
-    if (!amount || !merchant) {
-        toast({ title: "입력 확인", description: "가맹점과 금액을 입력해주세요.", variant: "destructive" });
-        return;
+    // [수정] 혜택 정보가 있으면 입력 검증 패스 (바로 모션 진입)
+    const hasIncomingBenefit = incomingPayment?.benefit_id && incomingPayment?.discount_amount;
+
+    if (!hasIncomingBenefit) {
+        if (!amount || !merchant) {
+            toast({ title: "입력 확인", description: "가맹점과 금액을 입력해주세요.", variant: "destructive" });
+            return;
+        }
     }
 
     setPaymentStatus('activating'); 
 
     try {
+        // [수정된 부분] 결제 요청 시 benefit_id와 discount_amount 포함
         const response = await fetchWithAuth('http://localhost:8000/api/transactions/pay', {
             method: 'POST',
             body: JSON.stringify({
                 user_asset_id: currentItem.originalAsset.asset_id,
                 amount: parseInt(amount),
-                merchant_name: merchant
+                merchant_name: merchant,
+                // [추가] 챗봇에서 전달받은 혜택 정보가 있고, 사용자가 금액/가맹점을 수정하지 않았다고 가정 시 전달
+                // (더 정교하게 하려면 amount가 변경되었는지 체크해야 하지만, 시뮬레이션 목적상 그대로 전달)
+                benefit_id: benefitId,
+                discount_amount: discountAmount
             })
         });
 
