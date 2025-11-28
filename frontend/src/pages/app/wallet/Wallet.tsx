@@ -127,7 +127,12 @@ const Wallet = () => {
     const recommendedCardId = location.state?.recommendedCardId;
     
     if (recommendedCardId) {
-      const targetIndex = carouselItems.findIndex(item => item.id === recommendedCardId);
+      // [수정] ID 매칭 로직 개선: asset_id 뿐만 아니라 external_account_id도 확인
+      const targetIndex = carouselItems.findIndex(item => 
+        item.id === String(recommendedCardId) || 
+        (item.originalAsset && item.originalAsset.external_account_id === String(recommendedCardId))
+      );
+
       if (targetIndex !== -1) {
         api.scrollTo(targetIndex); 
         setActiveIndex(targetIndex);
@@ -146,7 +151,7 @@ const Wallet = () => {
     };
     api.on("select", onSelect);
     return () => { api.off("select", onSelect); };
-  }, [api, location.state, navigate, assets]);
+  }, [api, location.state, navigate, assets]); // assets 의존성 추가 (carouselItems 재계산 반영)
 
   const handlePayment = async () => {
     const currentItem = carouselItems[activeIndex];
