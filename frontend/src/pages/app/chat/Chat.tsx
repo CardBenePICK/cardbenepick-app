@@ -235,8 +235,12 @@ const handleSendMessage = async () => {
       if (isValidJson(data.response)){
         const recommend_data = JSON.parse(data.response);
         if ("recommended_card" in recommend_data){ // 혜택 계산을 해서 나왔을 경우         
-          
-          const recommend_cards_data = []
+          // [수정 전] 단순히 배열에 push 하던 방식
+          // const recommend_cards_data = [] 
+
+          // [수정 후] 중복 제거를 위해 Map 사용
+          const uniqueCardsMap = new Map();
+
           let merchant = ""
           let price_val = ""
 
@@ -252,20 +256,67 @@ const handleSendMessage = async () => {
               // [수정된 부분] merchant, price, benefit_id 추가 저장 (props 전달용)
               merchant: merchant,
               price: price_val,
-              benefit_id: card_r.benefit_id, // [핵심] 챗봇 응답에 benefit_id가 있다고 가정 card_r.benefit_id
+              benefit_id: card_r.benefit_id, 
 
               desc: card_r.final_val +'원 결제 예정',
               detail: card_r.reason,
               color: 'from-blue-700 to-blue-500'
             };
-            recommend_cards_data.push(newCard)
+
+            // [추가된 로직] ID 중복 체크 및 혜택 비교
+            if (!uniqueCardsMap.has(newCard.id)) {
+                // 1. 맵에 해당 카드 ID가 없으면 추가
+                uniqueCardsMap.set(newCard.id, newCard);
+            } else {
+                // 2. 이미 존재하는 경우, 기존 저장된 카드와 현재 카드의 혜택 비교
+                const existingCard = uniqueCardsMap.get(newCard.id);
+                if (newCard.benefit > existingCard.benefit) {
+                    // 현재 카드의 혜택이 더 크면 교체
+                    uniqueCardsMap.set(newCard.id, newCard);
+                }
+            }
+            // recommend_cards_data.push(newCard) // [삭제] 기존 push 방식 제거
           }
 
-          // 혜택이 가장 높은 카드가 가장 위로 올라오도록.
+          // [추가] Map의 값들만 추출하여 배열로 변환
+          const recommend_cards_data = Array.from(uniqueCardsMap.values());
+
+          // 혜택이 가장 높은 카드가 가장 위로 올라오도록 정렬
           recommend_cards_data.sort((a, b) => b.benefit - a.benefit);
 
           addMessage(merchant + "에서 " + price_val + "원 결제 시, 추천 카드를 찾았습니다!", 'bot');
           addMessage("", 'bot', { recommendations: recommend_cards_data });
+        
+          // const recommend_cards_data = []
+          // let merchant = ""
+          // let price_val = ""
+
+          // for (const card_r of recommend_data.cards){
+          //   merchant = card_r.merchant_name;
+          //   price_val = card_r.price;
+
+          //   const newCard =
+          //   {
+          //     id: card_r.card_id,
+          //     name: card_r.card,
+          //     benefit: card_r.bene_val,
+          //     // [수정된 부분] merchant, price, benefit_id 추가 저장 (props 전달용)
+          //     merchant: merchant,
+          //     price: price_val,
+          //     benefit_id: card_r.benefit_id, // [핵심] 챗봇 응답에 benefit_id가 있다고 가정 card_r.benefit_id
+
+          //     desc: card_r.final_val +'원 결제 예정',
+          //     detail: card_r.reason,
+          //     color: 'from-blue-700 to-blue-500'
+          //   };
+          //   recommend_cards_data.push(newCard)
+          // }
+
+          // // 혜택이 가장 높은 카드가 가장 위로 올라오도록.
+          // recommend_cards_data.sort((a, b) => b.benefit - a.benefit);
+
+          // addMessage(merchant + "에서 " + price_val + "원 결제 시, 추천 카드를 찾았습니다!", 'bot');
+          // addMessage("", 'bot', { recommendations: recommend_cards_data });
         }
         // addMessage(data.response + "\n\n 이렇습니다." || "답변을 받았습니다.", 'bot', { recommendations: data.cards });  
       }else{
