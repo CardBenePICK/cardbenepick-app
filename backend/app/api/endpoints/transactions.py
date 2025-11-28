@@ -1,5 +1,6 @@
 import uuid
 import traceback # [추가] 상세 에러 로그용
+from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, SQLModel
@@ -46,9 +47,10 @@ def process_payment(
         # 이렇게 해야 저장 후 refresh 할 때 PK 불일치 에러가 안 남
         now = datetime.now().replace(microsecond=0)
 
+        tx_id = str(uuid.uuid4())
         # 2. 거래 내역 생성
         new_tx = CardTransaction(
-            transaction_id=str(uuid.uuid4()),
+            transaction_id= tx_id,
             user_id=user_id,
             card_id=asset.external_account_id, 
             card_company=asset.institution_name,
@@ -59,8 +61,14 @@ def process_payment(
         )
 
         db.add(new_tx)
+        # --- [디버깅 추가] ---
+        print("="*30)
+        print(f"DEBUG: 요청 받은 benefit_id: {request.benefit_id}")
+        print(f"DEBUG: 요청 받은 discount_amount: {request.discount_amount}")
+        
         # [수정된 부분: db insert] 혜택 이력 생성 (benefit_id가 있고 할인 금액이 0보다 클 때)
         if request.benefit_id and request.discount_amount and request.discount_amount > 0:
+            print("DEBUG: >> IF 조건문 진입 성공!")
             new_benefit = BenefitHistory(
                 user_id=user_id,
                 benefit_id=request.benefit_id,
@@ -68,10 +76,16 @@ def process_payment(
                 applied_amount=request.discount_amount,
                 usage_date=now
             )
+            # [요청하신 부분] new_benefit 내용 출력
+            print(f"DEBUG: 생성된 new_benefit 객체: {new_benefit}")
             db.add(new_benefit)
+        else:
+            print("DEBUG: >> 조건 불충족으로 BenefitHistory 생성 건너뜀")
+        print("="*30)
         
         db.commit()
         db.refresh(new_tx) 
+
 
         return {
             "message": "결제가 승인되었습니다.",
