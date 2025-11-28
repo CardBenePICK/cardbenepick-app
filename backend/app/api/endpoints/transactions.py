@@ -1,14 +1,14 @@
 import uuid
 import traceback # [추가] 상세 에러 로그용
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, SQLModel
 
 from app.api import deps
 from app.core.security import get_current_user_payload
 # [수정된 부분: db insert] BenefitHistory 모델 임포트 추가
-from app.db.models import UserAsset, CardTransaction, BenefitHistory
+from app.db.models import UserAsset, CardTransaction, BenefitHistory, BenefitSum
 
 router = APIRouter()
 
@@ -62,13 +62,13 @@ def process_payment(
 
         db.add(new_tx)
         # --- [디버깅 추가] ---
-        print("="*30)
-        print(f"DEBUG: 요청 받은 benefit_id: {request.benefit_id}")
-        print(f"DEBUG: 요청 받은 discount_amount: {request.discount_amount}")
+        # print("="*30)
+        # print(f"DEBUG: 요청 받은 benefit_id: {request.benefit_id}")
+        # print(f"DEBUG: 요청 받은 discount_amount: {request.discount_amount}")
         
         # [수정된 부분: db insert] 혜택 이력 생성 (benefit_id가 있고 할인 금액이 0보다 클 때)
         if request.benefit_id and request.discount_amount and request.discount_amount > 0:
-            print("DEBUG: >> IF 조건문 진입 성공!")
+            # print("DEBUG: >> IF 조건문 진입 성공!")
             new_benefit = BenefitHistory(
                 user_id=user_id,
                 benefit_id=request.benefit_id,
@@ -77,15 +77,82 @@ def process_payment(
                 usage_date=now
             )
             # [요청하신 부분] new_benefit 내용 출력
-            print(f"DEBUG: 생성된 new_benefit 객체: {new_benefit}")
+            # print(f"DEBUG: 생성된 new_benefit 객체: {new_benefit}")
             db.add(new_benefit)
-        else:
-            print("DEBUG: >> 조건 불충족으로 BenefitHistory 생성 건너뜀")
-        print("="*30)
+        # else:
+            # print("DEBUG: >> 조건 불충족으로 BenefitHistory 생성 건너뜀")
+        # print("="*30)
         
+        # DB에 먼저 반영해야 아래 조회 시 포함됨 (같은 트랜잭션 내 flush)
+            db.flush() 
+
+            # (2) 기간별 합계 계산 (Sum)
+            # 기준 시간 설정
+            today_start = now.replace(hour=0, minute=0, second=0)
+            week_start = today_start - timedelta(days=today_start.weekday()) # 월요일 시작 기준
+            month_start = today_start.replace(day=1)
+            year_start = today_start.replace(month=1, day=1)
+
+            # 해당 사용자의 해당 혜택 전체 이력 조회 (올해 데이터만 가져와서 필터링하는 것이 효율적)
+            # year_start 이상인 데이터만 가져와서 파이썬에서 계산
+            history_rows = db.exec(
+                select(BenefitHistory)
+                .where(BenefitHistory.user_id == user_id)
+                .where(BenefitHistory.benefit_id == request.benefit_id)
+                .where(BenefitHistory.usage_date >= year_start)
+            ).all()
+
+            # 파이썬 레벨에서 집계
+            d_amt, d_cnt = 0, 0
+            w_amt, w_cnt = 0, 0
+            m_amt, m_cnt = 0, 0
+            y_amt, y_cnt = 0, 0
+
+            for row in history_rows:
+                # Year
+                y_amt += row.applied_amount
+                y_cnt += 1
+                
+                # Month
+                if row.usage_date >= month_start:
+                    m_amt += row.applied_amount
+                    m_cnt += 1
+                
+                # Week
+                if row.usage_date >= week_start:
+                    w_amt += row.applied_amount
+                    w_cnt += 1
+                
+                # Day
+                if row.usage_date >= today_start:
+                    d_amt += row.applied_amount
+                    d_cnt += 1
+
+            # (3) BenefitSum 테이블 업데이트 (없으면 생성, 있으면 갱신)
+            benefit_sum = db.exec(
+                select(BenefitSum)
+                .where(BenefitSum.user_id == user_id)
+                .where(BenefitSum.benefit_id == request.benefit_id)
+            ).first()
+
+            if not benefit_sum:
+                benefit_sum = BenefitSum(user_id=user_id, benefit_id=request.benefit_id)
+            
+            # 값 갱신
+            benefit_sum.day_amount = d_amt
+            benefit_sum.day_count = d_cnt
+            benefit_sum.week_amount = w_amt
+            benefit_sum.week_count = w_cnt
+            benefit_sum.month_amount = m_amt
+            benefit_sum.month_count = m_cnt
+            benefit_sum.year_amount = y_amt
+            benefit_sum.year_count = y_cnt
+
+            db.add(benefit_sum)
+            print(f"DEBUG: BenefitSum 업데이트 완료 - ID: {request.benefit_id}, 월 사용액: {m_amt}")
+
         db.commit()
         db.refresh(new_tx) 
-
 
         return {
             "message": "결제가 승인되었습니다.",
@@ -93,7 +160,6 @@ def process_payment(
             "amount": new_tx.amount_krw,
             "merchant": new_tx.merchant_name,
             "approved_at": new_tx.transaction_date,
-            # 응답에도 혜택 적용 여부 포함 가능
             "benefit_applied": bool(request.benefit_id and request.discount_amount > 0)
         }
 

@@ -209,6 +209,29 @@ class BenefitHistory(SQLModel, table=True):
         sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     )
 
+# --- [추가] BenefitSum ---
+class BenefitSum(SQLModel, table=True):
+    """
+    혜택 한도 관리 및 집계를 위한 요약 테이블 (benefit_sum)
+    """
+    __tablename__ = "benefit_sum"
+
+    # 복합 PK (user_id, benefit_id)
+    user_id: int = Field(sa_column=Column(BIGINT, primary_key=True, nullable=False))
+    benefit_id: str = Field(max_length=16, primary_key=True, nullable=False)
+
+    day_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    day_count: Optional[int] = Field(default=0)
+
+    week_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    week_count: Optional[int] = Field(default=0)
+
+    month_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    month_count: Optional[int] = Field(default=0)
+
+    year_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    year_count: Optional[int] = Field(default=0)
+
 # --- Notification ---
 class Notification(SQLModel, table=True):
     """
