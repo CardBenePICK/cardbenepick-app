@@ -5,12 +5,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { 
   ArrowLeft, ArrowRight, Check, 
   CreditCard, Car, Utensils, Plane, GraduationCap, HeartPulse,
-  Wallet, Bus, Coffee, Sofa, BookOpen, Smile
+  Wallet, Bus, Coffee, Sofa, BookOpen, Smile, Briefcase, Baby, Sun, Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // --- 설문 응답 타입 ---
 interface SurveyResponses {
+  ender: string;      // 성별
+  ageGroup: string;    // 연령대
+  lifeStage: string;   // 생애주기
   monthlySpend: string;
   hasCar: string;
   diningFrequency: string;
@@ -21,6 +24,67 @@ interface SurveyResponses {
 
 // --- 질문 데이터 (아이콘 포함) ---
 const questions = [
+  // 1. 성별
+  {
+    id: 'gender',
+    icon: <span className="text-3xl">👫</span>,
+    question: "성별을 알려주세요.",
+    description: "성별에 따라 선호하는 혜택이 다를 수 있어요.",
+    options: [
+      { label: "남성", sub: "Male", value: '1', icon: <span className="text-2xl">👨</span> },
+      { label: "여성", sub: "Female", value: '2', icon: <span className="text-2xl">👩</span>},
+    ]
+  },
+  // 2. 연령대 (AGE) - API에 문자열 숫자("25")로 보낼 예정
+  {
+    id: 'ageGroup',
+    icon: <BookOpen className="w-8 h-8 text-green-500" />,
+    question: "현재 연령대가\n어떻게 되시나요?",
+    description: "나이대에 딱 맞는 카드를 찾아드릴게요.",
+    options: [
+      { label: "20대", sub: "대학생·취준생", value: '25', icon: <GraduationCap className="w-5 h-5" /> },
+      { label: "30대", sub: "사회초년생·직장인", value: '35', icon: <Briefcase className="w-5 h-5" /> },
+      { label: "40대", sub: "중견 직장인", value: '45', icon: <CreditCard className="w-5 h-5" /> },
+      { label: "50대 이상", sub: "은퇴 준비", value: '55', icon: <Sofa className="w-5 h-5" /> },
+    ]
+  },
+  // 3. 생애주기 (LIFE_STAGE)
+  {
+    id: 'lifeStage',
+    icon: <Coffee className="w-8 h-8 text-brown-500" />,
+    question: "현재 어떤 상황에\n해당하시나요?",
+    description: "라이프스타일에 맞는 혜택을 분석해요.",
+    options: [
+      // 1. 대학생
+      { label: "대학생", sub: "학업 열중", value: 'UNI', icon: <GraduationCap className="w-5 h-5" /> },
+      
+      // 2. 사회초년생
+      { label: "사회초년생", sub: "직장 생활 시작", value: 'NEW_JOB', icon: <Wallet className="w-5 h-5" /> },
+      
+      // 3. 신혼부부
+      { label: "신혼부부", sub: "달콤한 신혼", value: 'NEW_WED', icon: <HeartPulse className="w-5 h-5" /> },
+      
+      // 4. 영유아 자녀 부모 (CHILD_BABY)
+      { label: "영유아 자녀 부모", sub: "육아에 집중할 시기", value: 'CHILD_BABY', icon: <Smile className="w-5 h-5" /> },
+      
+      // 5. 청소년 자녀 부모 (CHILD_TEEN)
+      { label: "청소년 자녀 부모", sub: "자녀 교육비 지출", value: 'CHILD_TEEN', icon: <BookOpen className="w-5 h-5" /> },
+      
+      // 6. 성인 자녀 부모 (CHILD_UNI)
+      { label: "대학생 자녀 부모", sub: "학자금/생활비 지원", value: 'CHILD_UNI', icon: <Users className="w-5 h-5" /> },
+      
+      // 7. 액티브 시니어 (GOLLIFE)
+      { label: "액티브 시니어", sub: "여유롭고 활기찬 생활", value: 'GOLLIFE', icon: <Sun className="w-5 h-5" /> },
+      
+      // 8. 은퇴 준비기 (SECLIFE)
+      { label: "은퇴 준비기", sub: "제2의 인생 준비", value: 'SECLIFE', icon: <Coffee className="w-5 h-5" /> },
+      
+      // 9. 은퇴 (RETIRE)
+      { label: "은퇴", sub: "편안한 노후", value: 'RETIRE', icon: <Sofa className="w-5 h-5" /> },
+    ]
+  },
+
+  // 4. 한 달 카드 사용 금액 (Q_SPEND)
   {
     id: 'monthlySpend',
     icon: <Wallet className="w-8 h-8 text-blue-500" />,
@@ -48,9 +112,9 @@ const questions = [
     question: "평소 외식이나 카페를\n얼마나 자주 가시나요?",
     description: "맛집 탐방러를 위한 미식 혜택을 추천해 드려요.",
     options: [
-      { label: "거의 안 가요", sub: "월 10만원 미만", value: '1_Low', icon: <Sofa className="w-5 h-5" /> },
-      { label: "가끔 가요", sub: "월 10만 ~ 20만원", value: '2_Mid', icon: <Coffee className="w-5 h-5" /> },
-      { label: "자주 가요", sub: "월 20만원 이상", value: '3_High', icon: <Utensils className="w-5 h-5" /> },
+      { label: "거의 안 가요", sub: "월 30만원 미만", value: '1_Low', icon: <Sofa className="w-5 h-5" /> },
+      { label: "가끔 가요", sub: "월 30만 ~ 50만원", value: '2_Mid', icon: <Coffee className="w-5 h-5" /> },
+      { label: "자주 가요", sub: "월 50만원 이상", value: '3_High', icon: <Utensils className="w-5 h-5" /> },
     ]
   },
   {
@@ -73,6 +137,7 @@ const questions = [
       { label: "거의 없어요", sub: "해당 없음", value: 'No', icon: <Smile className="w-5 h-5" /> },
     ]
   },
+
   {
     id: 'hasHealth',
     icon: <HeartPulse className="w-8 h-8 text-rose-500" />,
