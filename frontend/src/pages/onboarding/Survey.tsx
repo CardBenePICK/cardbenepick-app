@@ -131,8 +131,7 @@ const Survey = () => {
   const progressPercent = ((currentStep + 1) / totalSteps) * 100;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
-      {/* --- 상단 헤더 & 진행바 --- */}
+    <div className="min-h-screen bg-gray flex flex-col font-sans text-gray-900 max-w-[448px] mx-auto">  {/* --- 상단 헤더 & 진행바 --- */}
       <div className="bg-white sticky top-0 z-20">
         <div className="flex items-center justify-between px-4 h-14">
           <Button 
