@@ -181,6 +181,34 @@ class CardTransaction(SQLModel, table=True):
         sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     )
 
+
+# --- [수정된 부분: db insert] BenefitHistory 추가 ---
+class BenefitHistory(SQLModel, table=True):
+    """
+    카드 혜택 적용 내역 (benefit_history 테이블)
+    """
+    __tablename__ = "benefit_history"
+
+    usage_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    )
+    user_id: int = Field(sa_column=Column(BIGINT, nullable=False))
+    
+    # benefit_id는 varchar(16)
+    benefit_id: str = Field(max_length=16, nullable=False)
+    
+    # transaction_id는 varchar(64)
+    transaction_id: str = Field(max_length=64, nullable=False)
+    
+    applied_amount: int = Field(nullable=False) # 적용된 혜택 금액
+    usage_date: datetime = Field(nullable=False)
+    
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    )
+
 # --- Notification ---
 class Notification(SQLModel, table=True):
     """
