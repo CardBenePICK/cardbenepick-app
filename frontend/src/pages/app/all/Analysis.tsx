@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 // 1. PieChart, CreditCard, BarChart2, Plus와 함께 'User' 아이콘을 가져옵니다.
-import { PieChart, CreditCard, BarChart2, Plus, User } from 'lucide-react';
+import { PieChart, CreditCard, BarChart2, Plus, User, CalendarDays } from 'lucide-react';
 
 // 2. '마이페이지' 항목을 배열의 맨 위에 추가합니다.
 const analysisMenuItems = [
@@ -17,6 +17,12 @@ const analysisMenuItems = [
     description: "카테고리별 지출 분석",
     icon: PieChart,
     link: "/app/analysis/detail", 
+  },
+  {
+    title: "소비 달력", // [NEW] 소비 달력 추가
+    description: "월별 지출 캘린더",
+    icon: CalendarDays,
+    link: "/app/analysis/calendar", // 캘린더 페이지 라우트
   },
   {
     title: "카드별 이용실적",
