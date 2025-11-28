@@ -25,8 +25,10 @@ import { cn } from '@/lib/utils';
 import { fetchWithAuth } from '@/lib/api';
 import { useCardStore } from '@/store/useCardStore';
 import { useToast } from '@/hooks/use-toast';
+import RewardCelebration from '@/components/RewardCelebration'; // 추가
 
-// [기존] 메인 화면용: 가로형 카드 이미지
+
+// [기존 코드 동일]
 const AutoOrientedCardImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
   const [isPortrait, setIsLandscape] = useState(false);
 
@@ -53,7 +55,6 @@ const AutoOrientedCardImage = ({ src, alt, className }: { src: string, alt: stri
   );
 };
 
-// [복구] 결제 애니메이션용
 const VerticalCardImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
   const [isLandscape, setIsLandscape] = useState(false);
 
@@ -80,6 +81,7 @@ const VerticalCardImage = ({ src, alt, className }: { src: string, alt: string, 
   );
 };
 
+
 const Wallet = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -91,6 +93,14 @@ const Wallet = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'activating' | 'activated'>('idle');
+
+  // 추가: RewardCelebration 상태
+  const [showReward, setShowReward] = useState(false);
+  const [rewardData, setRewardData] = useState({
+    savingsAmount: 0,
+    totalPoint: 0,
+    usageCount: 0
+  });
 
   const incomingPayment = location.state?.payment; 
   const [merchant, setMerchant] = useState<string>(incomingPayment?.merchant || '');
@@ -180,9 +190,20 @@ const Wallet = () => {
                 description: `${result.merchant}에서 ${result.amount.toLocaleString()}원 결제되었습니다.`
             });
 
+            // 수정: RewardCelebration 데이터 설정 및 표시
             setTimeout(() => {
                 setPaymentStatus('idle');
                 setIsModalOpen(false);
+                
+                // RewardCelebration에 전달할 데이터 설정
+                setRewardData({
+                    savingsAmount: result.discount_amount || parseInt(amount) * 0.1, // API에서 할인 금액 받거나 임시로 10%
+                    totalPoint: result.total_points || 50000, // API에서 총 적립 포인트 받기
+                    usageCount: result.usage_count || 12 // API에서 사용 횟수 받기
+                });
+                
+                // RewardCelebration 표시
+                setShowReward(true);
                 
                 setMerchant('');
                 setAmount('');
@@ -190,6 +211,7 @@ const Wallet = () => {
                     navigate(location.pathname, { replace: true, state: {} });
                 }
             }, 1500);
+
         }, 1000);
 
     } catch (error) {
@@ -215,12 +237,8 @@ const Wallet = () => {
   const getActiveItem = () => carouselItems[activeIndex] || carouselItems[0];
   const isAddCardActive = getActiveItem().id === 'add';
 
-  // [수정된 부분] 클릭한 카드의 정보를 처리하는 핸들러
   const handleCardImageClick = (item: typeof carouselItems[0]) => {
     if (item.type === 'card' && item.originalAsset) {
-        
-        // [핵심] ID가 없으면 '이름'을 보냅니다. (BC카드 등 일부 카드 대응)
-        // external_account_name이 없으면 institution_name이라도 보내도록 방어 로직 추가
         const cardIdentifier = item.originalAsset.external_account_id 
                             || item.originalAsset.external_account_name
                             || item.originalAsset.institution_name;
@@ -230,7 +248,6 @@ const Wallet = () => {
              return;
         }
 
-        // URL에 특수문자나 공백이 들어가도 깨지지 않게 인코딩
         navigate(`/app/card/${encodeURIComponent(cardIdentifier)}`, { 
             state: { isOwned: true } 
         });
@@ -239,6 +256,17 @@ const Wallet = () => {
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative">
+      {/* 추가: RewardCelebration */}
+      {showReward && (
+        <RewardCelebration
+          savingsAmount={rewardData.savingsAmount}
+          rewardRate={2.5}
+          total_point={rewardData.totalPoint}
+          usageCount={rewardData.usageCount}
+          onClose={() => setShowReward(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center p-4 border-b bg-white justify-between relative">
         <Button variant="ghost" size="sm" className="text-xs text-muted-foreground absolute left-4" onClick={handleSimulateChatbot}>
@@ -257,7 +285,7 @@ const Wallet = () => {
         </Button>
       </div>
 
-      {/* --- 카드 캐러셀 --- */}
+      {/* 나머지 코드 동일... */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 space-y-8 overflow-hidden">
         
         {isLoading ? (
@@ -280,7 +308,6 @@ const Wallet = () => {
                     </Card>
                   </div>
                 ) : (
-                  // [수정] 클릭 핸들러에 현재 카드를 넘깁니다! (화살표 함수 사용)
                   <div className="p-1 cursor-pointer active:scale-95 transition-transform" onClick={() => handleCardImageClick(card)}>
                     <Card className="shadow-elevated overflow-hidden rounded-lg bg-white flex items-center justify-center pointer-events-none" style={{ aspectRatio: '85.6 / 53.98' }}>
                        <AutoOrientedCardImage src={card.cardImage} alt={card.name} className="w-full h-full" />

@@ -17,6 +17,8 @@ export default function TestPage() {
         <RewardCelebration
           savingsAmount={38000}     // 필수
           rewardRate={2.5}          // 필수
+          total_point={150000}
+          usageCount={12}
           onClose={() => setShowReward(false)}  // 선택
         />
       )}
