@@ -11,13 +11,13 @@ import {
 } from "@/components/ui/carousel";
 import {
   AlertDialog,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  AlertDialogCancel, // Import 추가
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input'; 
 import { Label } from '@/components/ui/label'; 
@@ -93,14 +93,14 @@ const Wallet = () => {
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'activating' | 'activated'>('idle');
 
   const incomingPayment = location.state?.payment; 
-  // [수정된 부분] 혜택 정보 추출
   const benefitId = incomingPayment?.benefit_id;
   const discountAmount = incomingPayment?.discount_amount;
   
+  // [핵심] 자동 결제 여부 판단 (혜택 정보가 있으면 자동 결제)
+  const isAutoPay = !!(benefitId && discountAmount);
+
   const [merchant, setMerchant] = useState<string>(incomingPayment?.merchant || '');
   const [amount, setAmount] = useState<string>(incomingPayment?.amount ? String(incomingPayment.amount) : '');
-
-  // [추가] 혜택 금액 상태 관리
   const [benefitAmount, setBenefitAmount] = useState<string>('');
 
   useEffect(() => {
@@ -134,7 +134,6 @@ const Wallet = () => {
     const recommendedCardId = location.state?.recommendedCardId;
     
     if (recommendedCardId) {
-      // [수정] ID 매칭 로직 개선: asset_id 뿐만 아니라 external_account_id도 확인
       const targetIndex = carouselItems.findIndex(item => 
         item.id === String(recommendedCardId) || 
         (item.originalAsset && item.originalAsset.external_account_id === String(recommendedCardId))
@@ -147,12 +146,9 @@ const Wallet = () => {
       if (location.state?.payment) {
           setMerchant(location.state.payment.merchant);
           setAmount(String(location.state.payment.amount));
-
-          // [추가] 챗봇에서 혜택 금액이 넘어왔다면 설정
           if (location.state.payment.discount_amount) {
               setBenefitAmount(String(location.state.payment.discount_amount));
           }
-          
           setIsModalOpen(true); 
       }
     } else {
@@ -164,13 +160,12 @@ const Wallet = () => {
     };
     api.on("select", onSelect);
     return () => { api.off("select", onSelect); };
-  }, [api, location.state, navigate, assets]); // assets 의존성 추가 (carouselItems 재계산 반영)
+  }, [api, location.state, navigate, assets]);
 
   const handlePayment = async () => {
     const currentItem = carouselItems[activeIndex];
-    if (!currentItem.originalAsset) return;
+    if (!currentItem?.originalAsset) return; // Optional chaining 추가
 
-    // [수정] 혜택 정보가 있으면 입력 검증 패스 (바로 모션 진입)
     const hasIncomingBenefit = incomingPayment?.benefit_id && incomingPayment?.discount_amount;
 
     if (!hasIncomingBenefit) {
@@ -183,15 +178,12 @@ const Wallet = () => {
     setPaymentStatus('activating'); 
 
     try {
-        // [수정된 부분] 결제 요청 시 benefit_id와 discount_amount 포함
         const response = await fetchWithAuth('http://localhost:8000/api/transactions/pay', {
             method: 'POST',
             body: JSON.stringify({
                 user_asset_id: currentItem.originalAsset.asset_id,
                 amount: parseInt(amount),
                 merchant_name: merchant,
-                // [추가] 챗봇에서 전달받은 혜택 정보가 있고, 사용자가 금액/가맹점을 수정하지 않았다고 가정 시 전달
-                // (더 정교하게 하려면 amount가 변경되었는지 체크해야 하지만, 시뮬레이션 목적상 그대로 전달)
                 benefit_id: benefitId,
                 discount_amount: discountAmount
             })
@@ -228,6 +220,15 @@ const Wallet = () => {
     }
   };
 
+  // [수정] 딜레이(setTimeout) 없이 바로 결제 실행
+  useEffect(() => {
+    // 모달이 열려있고, 결제 대기(idle) 상태이며, 자동 결제 조건(isAutoPay)이 충족되면
+    if (isModalOpen && paymentStatus === 'idle' && isAutoPay && amount && merchant) {
+        handlePayment(); 
+    }
+  }, [isModalOpen, paymentStatus, isAutoPay, amount, merchant]); 
+  // handlePayment는 의존성 배열에서 제외 (무한루프 방지 혹은 useCallback 필요, 여기선 생략해도 무방)
+
   const onModalOpenChange = (open: boolean) => {
     if (!open) {
       setPaymentStatus('idle');
@@ -243,12 +244,8 @@ const Wallet = () => {
   const getActiveItem = () => carouselItems[activeIndex] || carouselItems[0];
   const isAddCardActive = getActiveItem().id === 'add';
 
-  // [수정된 부분] 클릭한 카드의 정보를 처리하는 핸들러
   const handleCardImageClick = (item: typeof carouselItems[0]) => {
     if (item.type === 'card' && item.originalAsset) {
-        
-        // [핵심] ID가 없으면 '이름'을 보냅니다. (BC카드 등 일부 카드 대응)
-        // external_account_name이 없으면 institution_name이라도 보내도록 방어 로직 추가
         const cardIdentifier = item.originalAsset.external_account_id 
                             || item.originalAsset.external_account_name
                             || item.originalAsset.institution_name;
@@ -258,7 +255,6 @@ const Wallet = () => {
              return;
         }
 
-        // URL에 특수문자나 공백이 들어가도 깨지지 않게 인코딩
         navigate(`/app/card/${encodeURIComponent(cardIdentifier)}`, { 
             state: { isOwned: true } 
         });
@@ -267,27 +263,17 @@ const Wallet = () => {
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative">
-      {/* Header */}
       <div className="flex items-center p-4 border-b bg-white justify-between relative">
         <Button variant="ghost" size="sm" className="text-xs text-muted-foreground absolute left-4" onClick={handleSimulateChatbot}>
             <Beaker className="w-4 h-4 mr-1" /> Test
         </Button>
-        
         <h1 className="text-lg font-semibold flex-1 text-center">내 지갑</h1>
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="absolute right-4"
-          onClick={() => navigate('/app/notifications')}
-        >
+        <Button variant="ghost" size="icon" className="absolute right-4" onClick={() => navigate('/app/notifications')}>
           <Bell className="w-6 h-6 text-gray-700" />
         </Button>
       </div>
 
-      {/* --- 카드 캐러셀 --- */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 space-y-8 overflow-hidden">
-        
         {isLoading ? (
             <div className="flex flex-col items-center animate-pulse">
                 <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
@@ -308,7 +294,6 @@ const Wallet = () => {
                     </Card>
                   </div>
                 ) : (
-                  // [수정] 클릭 핸들러에 현재 카드를 넘깁니다! (화살표 함수 사용)
                   <div className="p-1 cursor-pointer active:scale-95 transition-transform" onClick={() => handleCardImageClick(card)}>
                     <Card className="shadow-elevated overflow-hidden rounded-lg bg-white flex items-center justify-center pointer-events-none" style={{ aspectRatio: '85.6 / 53.98' }}>
                        <AutoOrientedCardImage src={card.cardImage} alt={card.name} className="w-full h-full" />
@@ -318,7 +303,6 @@ const Wallet = () => {
               </CarouselItem>
             ))}
           </CarouselContent>
-          
           <div className="text-center mt-6 space-y-1 h-12">
             {!isAddCardActive && (
                 <>
@@ -346,7 +330,9 @@ const Wallet = () => {
                 </AlertDialogTrigger>
                 
                 <AlertDialogContent className="max-w-[320px] rounded-2xl">
-                {paymentStatus === 'idle' && (
+                
+                {/* [핵심 수정] isAutoPay가 false일 때만 입력창(idle)을 보여줌 */}
+                {paymentStatus === 'idle' && !isAutoPay && (
                     <>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="text-center">
@@ -387,12 +373,14 @@ const Wallet = () => {
                     </>
                 )}
                 
-                {(paymentStatus === 'activating' || paymentStatus === 'activated') && (
+                {/* [핵심 수정] activating/activated 상태이거나, idle이어도 isAutoPay가 true면 애니메이션 화면 노출 */}
+                {(paymentStatus === 'activating' || paymentStatus === 'activated' || (paymentStatus === 'idle' && isAutoPay)) && (
                     <div className="flex flex-col items-center justify-center min-h-[300px] space-y-6 perspective-1000">
                     <div 
                         className={cn(
                         "relative w-32 rounded-lg shadow-2xl transform-style-3d transition-all duration-700",
-                        paymentStatus === 'activating' && "animate-card-stand-up", 
+                        // activating이거나 (자동결제인데 idle인 경우) 카드를 세움
+                        (paymentStatus === 'activating' || (paymentStatus === 'idle' && isAutoPay)) && "animate-card-stand-up", 
                         paymentStatus === 'activated' && "scale-110 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]"
                         )}
                         style={{ aspectRatio: '53.98 / 85.6' }} 
@@ -404,7 +392,8 @@ const Wallet = () => {
                         />
                     </div>
 
-                    {paymentStatus === 'activating' && (
+                    {/* activating이거나 (자동결제인데 idle인 경우) 로딩 텍스트 표시 */}
+                    {(paymentStatus === 'activating' || (paymentStatus === 'idle' && isAutoPay)) && (
                         <div className="flex flex-col items-center space-y-2 text-muted-foreground animate-pulse">
                         <Loader2 className="w-6 h-6 animate-spin text-primary" />
                         <span className="text-sm font-medium">승인 요청 중...</span>
