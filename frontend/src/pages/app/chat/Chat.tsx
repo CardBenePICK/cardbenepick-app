@@ -52,7 +52,18 @@ const RecommendationCardItem = ({ card, navigate, isBest }: any) => {
 
   const handleCardClick = () => {
     // 카드를 누르면 결제 화면으로 이동하면서 카드 정보 넘기기
-    navigate('/app/wallet', { state: { recommendedCardId: card.id } });
+    // [수정된 부분] payment 정보(혜택 포함)를 함께 전달
+    navigate('/app/wallet', { 
+        state: { 
+            recommendedCardId: card.id,
+            payment: {
+                merchant: card.merchant,      // Chat loop에서 넣어준 값
+                amount: card.price,           // Chat loop에서 넣어준 값
+                benefit_id: card.benefit_id,  // [핵심] 혜택 ID 전달 card.benefit_id
+                discount_amount: card.benefit // [핵심] 혜택 금액 전달
+            }
+        } 
+    });
   };
 
   const handleHelpClick = (e: any) => {
@@ -238,6 +249,11 @@ const handleSendMessage = async () => {
               id: card_r.card_id,
               name: card_r.card,
               benefit: card_r.bene_val,
+              // [수정된 부분] merchant, price, benefit_id 추가 저장 (props 전달용)
+              merchant: merchant,
+              price: price_val,
+              benefit_id: card_r.benefit_id, // [핵심] 챗봇 응답에 benefit_id가 있다고 가정 card_r.benefit_id
+
               desc: card_r.final_val +'원 결제 예정',
               detail: card_r.reason,
               color: 'from-blue-700 to-blue-500'

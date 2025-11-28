@@ -48,6 +48,11 @@ import Recommendations from "./pages/shared/Recommendations";
 import CardDetail from "./pages/shared/CardDetail";
 const queryClient = new QueryClient();
 
+// --- 5. 결제 페이지 
+import PaymentResultPage from './pages/PaymentResultPage';
+
+import TestPage from './pages/TestPage';
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -89,6 +94,9 @@ const App = () => (
 
           {/* CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
+
+          <Route path="/payment/result" element={<PaymentResultPage />} />
+          <Route path="/test" element={<TestPage />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
