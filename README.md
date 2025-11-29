@@ -85,7 +85,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440
 서버 실행:
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 # Swagger UI 접속: http://localhost:8000/docs
 ```
 3. Frontend Setup (프론트엔드 실행)

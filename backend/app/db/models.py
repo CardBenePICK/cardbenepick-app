@@ -181,6 +181,57 @@ class CardTransaction(SQLModel, table=True):
         sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     )
 
+
+# --- [수정된 부분: db insert] BenefitHistory 추가 ---
+class BenefitHistory(SQLModel, table=True):
+    """
+    카드 혜택 적용 내역 (benefit_history 테이블)
+    """
+    __tablename__ = "benefit_history"
+
+    usage_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    )
+    user_id: int = Field(sa_column=Column(BIGINT, nullable=False))
+    
+    # benefit_id는 varchar(16)
+    benefit_id: str = Field(max_length=16, nullable=False)
+    
+    # transaction_id는 varchar(64)
+    transaction_id: str = Field(max_length=64, nullable=False)
+    
+    applied_amount: int = Field(nullable=False) # 적용된 혜택 금액
+    usage_date: datetime = Field(nullable=False)
+    
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    )
+
+# --- [추가] BenefitSum ---
+class BenefitSum(SQLModel, table=True):
+    """
+    혜택 한도 관리 및 집계를 위한 요약 테이블 (benefit_sum)
+    """
+    __tablename__ = "benefit_sum"
+
+    # 복합 PK (user_id, benefit_id)
+    user_id: int = Field(sa_column=Column(BIGINT, primary_key=True, nullable=False))
+    benefit_id: str = Field(max_length=16, primary_key=True, nullable=False)
+
+    day_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    day_count: Optional[int] = Field(default=0)
+
+    week_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    week_count: Optional[int] = Field(default=0)
+
+    month_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    month_count: Optional[int] = Field(default=0)
+
+    year_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    year_count: Optional[int] = Field(default=0)
+
 # --- Notification ---
 class Notification(SQLModel, table=True):
     """

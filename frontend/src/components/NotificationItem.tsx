@@ -15,15 +15,17 @@ interface DBContent extends NotificationContent {
 
 interface Props {
   item: Notification;
+  // [수정 1] 상위 컴포넌트에서 클릭 이벤트를 받을 수 있게 추가
+  onClick?: () => void; 
 }
 
-const NotificationItem = ({ item }: Props) => {
+const NotificationItem = ({ item, onClick }: Props) => { // [수정 2] onClick props 받기
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const { alarm_type, content, created_at } = item;
 
   // ----------------------------------------------------------------
-  // [Type 1] 카드 실적 알림 (파란색 카드) -> 여기가 보유 카드 목록입니다!
+  // [Type 1] 카드 실적 알림 (파란색 카드) -> 아코디언 동작 유지
   // ----------------------------------------------------------------
   if (alarm_type === 1 && Array.isArray(content)) {
     const cardList = content as NotificationContent[];
@@ -62,8 +64,6 @@ const NotificationItem = ({ item }: Props) => {
                 <div 
                   key={idx} 
                   className="flex items-start p-4 border-b border-slate-100 last:border-0 hover:bg-slate-100 cursor-pointer transition-colors"
-                  // [수정됨] 클릭 시 isOwned: true를 함께 전달합니다.
-                  // 실적 알림에 뜬다는 건 무조건 '내 카드'라는 뜻이니까요.
                   onClick={() => navigate(`/app/card/${encodeURIComponent(card.card_name)}`, { 
                       state: { isOwned: true } 
                   })}
@@ -107,12 +107,16 @@ const NotificationItem = ({ item }: Props) => {
   }
 
   // ----------------------------------------------------------------
-  // [Type 3] 주간 지출 알림 (초록색 달력)
+  // [Type 3] 주간 지출 알림 (초록색 달력) -> [수정 3] onClick 연결
   // ----------------------------------------------------------------
   if (alarm_type === 3) {
     const notiContent = content as DBContent;
     return (
-      <div className="flex p-4 border-b border-border bg-white hover:bg-gray-50 transition-colors cursor-pointer">
+      <div 
+        // 여기서 상위에서 전달받은 onClick 실행 (라우팅 트리거)
+        onClick={onClick} 
+        className="flex p-4 border-b border-border bg-white hover:bg-gray-50 transition-colors cursor-pointer"
+      >
         <div className="mr-4 mt-1">
           <div className="p-2 bg-green-50 rounded-full text-green-600">
             <Calendar className="w-5 h-5" />
@@ -135,12 +139,15 @@ const NotificationItem = ({ item }: Props) => {
   }
 
   // ----------------------------------------------------------------
-  // [Type 2] 공지사항 (빨간색 확성기)
+  // [Type 2] 공지사항 (빨간색 확성기) -> [수정 4] onClick 연결 (필요 시)
   // ----------------------------------------------------------------
   const notiContent = content as DBContent;
 
   return (
-    <div className="flex p-4 border-b border-border bg-white hover:bg-gray-50 transition-colors">
+    <div 
+      onClick={onClick} 
+      className="flex p-4 border-b border-border bg-white hover:bg-gray-50 transition-colors cursor-pointer"
+    >
       <div className="mr-4 mt-1">
         <div className="p-2 rounded-full bg-red-50 text-red-500">
           <Megaphone className="w-5 h-5" />
@@ -153,7 +160,7 @@ const NotificationItem = ({ item }: Props) => {
         </div>
         
         <div className="text-xs text-gray-500">
-          {notiContent.content || notiContent.message || "새로운 소식이 있습니다."}
+          {notiContent.message || notiContent.content || "새로운 소식이 있습니다."}
         </div>
 
         <div className="text-[10px] text-gray-400 mt-2">
