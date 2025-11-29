@@ -20,6 +20,7 @@ import Register from "./pages/auth/Register";
 // --- 2. 온보딩 (onboarding) ---
 import LinkMyData from "./pages/onboarding/LinkMyData";
 import Survey from "./pages/onboarding/Survey";
+import SurveyComplete from "./pages/onboarding/SurveyComplete";
 
 // --- 3. 메인 앱 (app) ---
 // 3a. 월렛 (app/wallet)
@@ -68,6 +69,8 @@ const App = () => (
           <Route path="/link-mydata" element={<LinkMyData />} />
           <Route path="/survey" element={<Survey />} />
           
+          {/* 2. 새 라우트 추가 */}
+          <Route path="/survey-complete" element={<SurveyComplete />} />
           <Route path="/analysis-loading" element={<AnalysisLoading />} />
 
           <Route path="/recommendations" element={<Recommendations />} />
