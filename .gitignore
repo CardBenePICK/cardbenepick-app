@@ -110,3 +110,9 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# 이미지
+*.png
+*.jpg
+*.gif
+*.zip
