@@ -69,7 +69,7 @@ const VerifyOtp = () => {
             login(token, userData);
             
             toast({ title: "로그인 성공", description: "환영합니다!" });
-            navigate('/app/wallet');
+            navigate('/app/chat', { replace: true });
         } else {
             throw new Error("유저 정보를 불러오는데 실패했습니다.");
         }
