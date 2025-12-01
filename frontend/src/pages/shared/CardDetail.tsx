@@ -371,7 +371,7 @@ const CardDetail = () => {
   const { groupedBenefits, noticeBenefit } = processBenefits(card.benefits);
 
   return (
-    <div className={cn("bg-gray-50 min-h-screen relative", !isOwned ? "pb-28" : "pb-10")}>
+    <div className={cn("bg-gray-50 min-h-screen relative max-w-[448px] mx-auto shadow-xl", !isOwned ? "pb-28" : "pb-10")}>
       <div className="sticky top-0 z-10 flex items-center p-4 bg-white border-b shadow-sm">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mr-3">
           <ArrowLeft className="w-5 h-5" />
