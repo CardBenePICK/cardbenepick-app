@@ -6,10 +6,10 @@ from app.api import deps
 from app.core.security import get_current_user_payload
 from app.services.data_loader import load_mock_data
 from app.schemas.response import AssetResponse 
-# [필수] 모델 임포트
-from app.db.models import UserAsset, CardTransaction, CardMaster, AssetType, CardBenefit
+# [수정] BenefitSum 모델 임포트 추가
+from app.db.models import UserAsset, CardTransaction, CardMaster, AssetType, CardBenefit, BenefitSum
 import app.core.config as config
-import urllib.parse # [추가] URL 디코딩용
+import urllib.parse 
 
 router = APIRouter()
 
@@ -49,7 +49,7 @@ def get_card_products(
     return response
 
 # -------------------------------------------------------------------
-# [핵심 수정] 카드 상세 정보 조회 (ID 또는 이름으로 검색)
+# 카드 상세 정보 조회 (ID 또는 이름으로 검색)
 # -------------------------------------------------------------------
 class CardDetailResponse(SQLModel):
     card_id: str
@@ -63,13 +63,13 @@ def get_card_detail(
     card_identifier: str,
     db: Session = Depends(deps.get_db)
 ):
-    # 1. URL 디코딩 (예: "%EC%8B%A0%ED..." -> "신한카드 Mr.Life")
+    # 1. URL 디코딩
     decoded_id = urllib.parse.unquote(card_identifier)
 
     # 2. [우선순위 1] ID로 검색
     card = db.exec(select(CardMaster).where(CardMaster.card_id == decoded_id)).first()
     
-    # 3. [우선순위 2] 없으면 이름으로 검색 (404 에러 해결!)
+    # 3. [우선순위 2] 없으면 이름으로 검색
     if not card:
         card = db.exec(select(CardMaster).where(CardMaster.card_name == decoded_id)).first()
 
@@ -104,7 +104,7 @@ def get_card_detail(
     )
 
 # -------------------------------------------------------------------
-# 2. 카드 직접 등록
+# 2. 카드 직접 등록 (수정됨)
 # -------------------------------------------------------------------
 class CardRegisterRequest(SQLModel):
     card_number: str          
@@ -142,6 +142,7 @@ def register_card(
         raise HTTPException(status_code=409, detail="이미 등록된 카드 상품입니다.")
 
     try:
+        # 1. 자산(UserAsset) 생성
         new_asset = UserAsset(
             user_id=user_id,
             asset_type=AssetType.card,
@@ -152,6 +153,39 @@ def register_card(
         )
         
         db.add(new_asset)
+
+        # -------------------------------------------------------------------
+        # [수정 시작] BenefitSum 테이블 초기화 로직 추가
+        # -------------------------------------------------------------------
+        # 2. 등록하려는 카드의 모든 혜택(CardBenefit) 조회
+        card_benefits = db.exec(
+            select(CardBenefit).where(CardBenefit.card_id == request.card_product_id)
+        ).all()
+
+        # 3. 각 혜택에 대해 BenefitSum 엔트리 생성 (초기값 0)
+        for benefit in card_benefits:
+            # 혹시 카드를 삭제했다가 다시 등록하는 경우 등, 이미 BenefitSum이 존재할 수 있으므로 체크
+            existing_sum = db.exec(
+                select(BenefitSum)
+                .where(BenefitSum.user_id == user_id)
+                .where(BenefitSum.benefit_id == benefit.benefit_id)
+            ).first()
+
+            # 존재하지 않을 때만 새로 생성
+            if not existing_sum:
+                new_benefit_sum = BenefitSum(
+                    user_id=user_id,
+                    benefit_id=benefit.benefit_id,
+                    day_amount=0, day_count=0,
+                    week_amount=0, week_count=0,
+                    month_amount=0, month_count=0,
+                    year_amount=0, year_count=0
+                )
+                db.add(new_benefit_sum)
+        # -------------------------------------------------------------------
+        # [수정 끝]
+        # -------------------------------------------------------------------
+
         db.commit()
         db.refresh(new_asset)
         
