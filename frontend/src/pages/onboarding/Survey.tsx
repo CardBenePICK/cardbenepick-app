@@ -443,7 +443,7 @@ const questions = [
     options: [
       { label: "대학생", sub: "학업 열중", value: 'UNI', icon: <GraduationCap className="w-5 h-5" /> },
       { label: "사회초년생", sub: "직장 생활 시작", value: 'NEW_JOB', icon: <Wallet className="w-5 h-5" /> },
-      { label: "신혼부부", sub: "달콤한 신혼", value: 'NEW_WED', icon: <HeartPulse className="w-5 h-5" /> },
+      { label: "신혼부부", sub: "결혼 생활 시작", value: 'NEW_WED', icon: <HeartPulse className="w-5 h-5" /> },
       { label: "영유아 자녀 부모", sub: "육아에 집중할 시기", value: 'CHILD_BABY', icon: <Smile className="w-5 h-5" /> },
       { label: "청소년 자녀 부모", sub: "자녀 교육비 지출", value: 'CHILD_TEEN', icon: <BookOpen className="w-5 h-5" /> },
       { label: "대학생 자녀 부모", sub: "학자금/생활비 지원", value: 'CHILD_UNI', icon: <Users className="w-5 h-5" /> },
