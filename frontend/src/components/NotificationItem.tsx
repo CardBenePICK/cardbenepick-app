@@ -42,7 +42,7 @@ const NotificationItem = ({ item, onClick }: Props) => { // [수정 2] onClick p
           </div>
           <div className="flex-1">
             <h3 className="text-sm font-bold text-gray-800">
-              어제까지의 카드 실적 현황
+              이번 달 카드 실적 현황 (9:00AM 기준)
             </h3>
             <p className="text-xs text-gray-500 mt-1">
               {isExpanded ? "아래에서 상세 내역을 확인하세요." : `${cardList.length}건의 카드 실적 보기`}
