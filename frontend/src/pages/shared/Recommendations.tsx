@@ -1,236 +1,202 @@
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CreditCard, Users, TrendingUp, Star } from 'lucide-react';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
-import { SurveyResponse, UserGroup, Card as CardType } from '../../types';
-import { benefitCategoryNames } from '../../data/mockData';
+import { ArrowLeft, CreditCard, Users, TrendingUp, Star, Loader2, AlertCircle } from 'lucide-react';
+
+// 카드 데이터 타입 (서버 응답에 맞춤)
+interface CardAsset {
+  id: number;
+  name: string;
+  company: string;
+  image_url: string;
+  benefits?: any[];
+}
 
 const Recommendations = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // --- [수정됨] ---
-  // state가 비어있는 경우를 대비 (AnalysisLoading 페이지를 거치지 않은 경우)
-  const surveyState = location.state as {
-    surveyResponse: SurveyResponse;
-    userGroup: UserGroup;
-    cardCombinations: CardType[][];
+  // SurveyComplete에서 넘겨준 클러스터 번호 (기본값 0)
+  const userCluster = location.state?.cluster ?? 0;
+
+  // 상태 관리
+  const [loading, setLoading] = useState(true);
+  const [cards, setCards] = useState<CardAsset[]>([]);
+  const [error, setError] = useState('');
+
+  // --- 클러스터별 정보 (SurveyComplete와 컨셉 통일) ---
+  const getClusterInfo = (id: number) => {
+    switch(id) {
+      case 0: return { name: "실속 미식가", desc: "가성비와 미식을 동시에 챙기는 스마트한 타입", tags: ["#맛집", "#병원", "#가성비"] };
+      case 1: return { name: "알뜰 소액족", desc: "꼭 필요한 곳에만 지출하는 절약의 고수", tags: ["#공과금", "#통신비", "#무지출"] };
+      case 2: return { name: "에듀 맘/대디", desc: "자녀 교육과 미래를 위한 아낌없는 투자", tags: ["#학원", "#서점", "#온라인강의"] };
+      case 3: return { name: "럭셔리 VIP", desc: "여행, 레저, 다이닝을 즐기는 여유로운 라이프", tags: ["#호텔", "#골프", "#라운지"] };
+      case 4: return { name: "마이카 중산층", desc: "내 차 관리와 주유 혜택이 필수인 오너 드라이버", tags: ["#주유", "#정비", "#하이패스"] };
+      default: return { name: "스마트 컨슈머", desc: "합리적인 소비를 지향하는 당신", tags: ["#생활비", "#쇼핑", "#적립"] };
+    }
   };
 
-  // userGroup이나 cardCombinations가 없으면 survey 페이지로 리다이렉트
-  if (!surveyState || !surveyState.userGroup || !surveyState.cardCombinations) {
+  const clusterInfo = getClusterInfo(userCluster);
+
+  // --- 서버에서 카드 데이터 가져오기 ---
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        setLoading(true);
+        // 토큰 직접 가져오기 (Import 에러 방지)
+        const token = localStorage.getItem('accessToken');
+
+        const response = await fetch('http://127.0.0.1:8000/api/assets/', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            // 토큰이 있으면 헤더에 추가 (401 에러 방지)
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('로그인이 필요합니다.');
+          throw new Error('카드 목록을 불러오지 못했습니다.');
+        }
+
+        const data = await response.json();
+        // TODO: 나중에는 백엔드에서 클러스터별 추천 카드를 줘야 함. 지금은 임시로 앞에서 3개만 자름.
+        setCards(data.slice(0, 3)); 
+
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecommendations();
+  }, [userCluster]);
+
+
+  // 1. 로딩 중
+  if (loading) {
     return (
-      <div className="app-container p-6">
-        <p>추천 데이터를 불러오는 데 실패했습니다. 설문을 다시 진행해주세요.</p>
-        <Button onClick={() => navigate('/survey')}>설문으로 돌아가기</Button>
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-4" />
+        <p className="text-gray-500 text-sm">맞춤 카드를 분석하고 있습니다...</p>
       </div>
     );
   }
 
-  const { surveyResponse, userGroup, cardCombinations } = surveyState;
-  // --- [수정 완료] ---
-
-
-  // 방사형 차트 데이터 생성
-  const radarData = Object.entries(benefitCategoryNames).map(([category, name]) => ({
-    category: name,
-    user: surveyResponse.spendingCategories.includes(category as any) ? 5 : 1,
-    // 그룹 데이터가 없을 경우 1로 처리
-    group: userGroup?.spendingPattern?.categories[category as keyof typeof userGroup.spendingPattern.categories] || 1
-  }));
-
-  const handleCardClick = (cardId: string) => {
-    navigate(`/app/card/${cardId}`);
-  };
+  // 2. 에러 발생
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-gray-800 font-bold mb-2">오류 발생</p>
+        <p className="text-gray-500 text-sm mb-6">{error}</p>
+        <Button onClick={() => navigate('/login')} variant="outline">로그인 페이지로</Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="app-container">
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900 w-full max-w-[480px] mx-auto">
+      
       {/* Header */}
-      <div className="flex items-center p-4 border-b">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/survey')} className="mr-3">
+      <div className="bg-white sticky top-0 z-10 px-4 h-14 flex items-center border-b border-gray-100">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/survey')} className="mr-2">
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="text-lg font-semibold">추천 결과</h1>
+        <h1 className="font-bold text-lg">추천 결과</h1>
       </div>
 
       {/* Content */}
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 overflow-y-auto pb-24">
 
-        {/* --- [수정됨] --- */}
-        {/* 회원가입 버튼 추가 */}
-        <Button className="w-full btn-gradient h-11" onClick={() => navigate('/login')}>
+        {/* 회원가입/관리 유도 버튼 (원래 코드 유지) */}
+        <Button className="w-full btn-gradient h-11 text-white font-bold shadow-md" onClick={() => navigate('/login')}>
           가입하고 내 카드 관리하기
         </Button>
-        {/* --- [수정 완료] --- */}
 
-
-        {/* 사용자 그룹 정보 */}
-        <Card className="shadow-card">
-          <CardHeader>
+        {/* 1. 사용자 그룹 정보 카드 */}
+        <Card className="shadow-sm border-gray-200 bg-white">
+          <CardHeader className="pb-3">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                <Users className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
+                <Users className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <CardTitle className="text-lg">당신의 소비 그룹</CardTitle>
-                <p className="text-sm text-muted-foreground">비슷한 소비 패턴을 가진 사용자들</p>
+                <CardTitle className="text-lg text-gray-900">당신의 소비 그룹</CardTitle>
+                <p className="text-xs text-gray-500">AI가 분석한 라이프스타일</p>
               </div>
             </div>
           </CardHeader>
           
           <CardContent className="space-y-4">
-            <div className="p-4 rounded-lg bg-secondary"> 
-              <h3 className="font-semibold mb-2 text-primary">{userGroup.name}</h3>
-              <div className="space-y-2">
-                {userGroup.characteristics.map((characteristic, index) => (
-                  <div key={index} className="flex items-center text-sm text-muted-foreground">
-                    <div className="w-1 h-1 bg-primary rounded-full mr-2" />
-                    {characteristic}
-                  </div>
+            <div className="p-4 rounded-xl bg-gray-50 border border-gray-100"> 
+              <h3 className="font-bold text-lg text-blue-700 mb-1">{clusterInfo.name}</h3>
+              <p className="text-sm text-gray-600 mb-3">{clusterInfo.desc}</p>
+              <div className="flex flex-wrap gap-2">
+                {clusterInfo.tags.map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="bg-white text-gray-500 border border-gray-200 font-normal">
+                    {tag}
+                  </Badge>
                 ))}
-              </div>
-            </div>
-
-            {/* 소비 성향 비교 차트 */}
-            <div>
-              <h4 className="font-medium mb-3">소비 성향 비교</h4>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="category" tick={{
-                      fontSize: 10, fill: "hsl(var(--muted-foreground))"
-                    }} />
-                    <PolarRadiusAxis angle={90} domain={[0, 5]} tick={false} />
-                    <Radar name="나의 성향" dataKey="user" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} strokeWidth={2} />
-                    <Radar name="그룹 평균" dataKey="group" stroke="hsl(var(--success))" fill="hsl(var(--success))" fillOpacity={0.1} strokeWidth={2} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center space-x-6 mt-2">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-primary rounded-full" />
-                  <span className="text-xs text-muted-foreground">나의 성향</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-success rounded-full" />
-                  <span className="text-xs text-muted-foreground">그룹 평균</span>
-                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* 카드 조합 추천 */}
+        {/* 2. 추천 카드 리스트 */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold flex items-center">
-            <CreditCard className="w-5 h-5 mr-2" />
-            추천 카드 조합
+          <h2 className="text-lg font-bold flex items-center text-gray-900">
+            <CreditCard className="w-5 h-5 mr-2 text-blue-600" />
+            AI 추천 카드
           </h2>
           
-          {cardCombinations.map((combination, index) => (
-            <Card key={index} className="shadow-card overflow-hidden"> 
-              <CardHeader className="flex flex-col space-y-1.5 p-4 bg-secondary"> 
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-primary">
-                    조합 {index + 1}: {index === 0 ? '맞춤 혜택 조합' : index === 1 ? '균형 잡힌 조합' : '인기 카드 조합'}
-                  </CardTitle>
-                  <Badge variant="secondary" className="text-primary-foreground bg-primary/80"> 
-                    {combination.length}장
-                  </Badge>
+          {/* 카드 목록 반복 */}
+          {cards.map((card, index) => (
+            <Card 
+                key={card.id} 
+                className="shadow-sm border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 transition-all active:scale-[0.98]"
+                onClick={() => navigate(`/app/card/${card.id}`)}
+            > 
+              <CardContent className="p-0 flex"> 
+                {/* 카드 이미지 영역 */}
+                <div className="w-24 bg-gray-50 flex items-center justify-center p-2 border-r border-gray-100">
+                    {card.image_url ? (
+                        <img src={card.image_url} alt={card.name} className="w-full h-auto object-contain" />
+                    ) : (
+                        <CreditCard className="w-8 h-8 text-gray-300" />
+                    )}
                 </div>
-              </CardHeader>
-              
-              <CardContent className="p-4 space-y-3"> 
-                {combination.map((card, cardIndex) => (
-                  <div 
-                    key={cardIndex} 
-                    className="flex items-center space-x-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors" 
-                    onClick={() => handleCardClick(card.id)}
-                  >
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <CreditCard className="w-5 h-5 text-primary" />
+
+                {/* 카드 정보 영역 */}
+                <div className="flex-1 p-4 flex flex-col justify-center">
+                    <div className="flex justify-between items-start mb-1">
+                        <span className="text-xs text-gray-400 font-medium">{card.company}</span>
+                        {index === 0 && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 text-[10px] px-1.5 h-5">BEST</Badge>}
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm">{card.name}</h4>
-                      <p className="text-xs text-muted-foreground">{card.bank}</p>
-                      <div className="flex items-center mt-1">
-                        <Star className="w-3 h-3 text-yellow-500 mr-1" />
-                        <span className="text-xs text-muted-foreground">
-                          인기도 {card.popularityScore}점
-                        </span>
-                      </div>
+                    <h4 className="font-bold text-gray-900 text-base mb-2">{card.name}</h4>
+                    
+                    <div className="flex items-center gap-1">
+                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                        <span className="text-xs text-gray-500">인기도 {9.8 - (index * 0.2)}</span>
                     </div>
-                    <div className="text-primary">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
-                ))}
-                
-                <div className="p-3 bg-secondary rounded-lg">
-                  <p className="text-sm text-primary">
-                    {index === 0 && '선호하는 혜택 카테고리에 최적화된 카드들로 구성했습니다.'}
-                    {index === 1 && '다양한 혜택을 골고루 받을 수 있는 균형잡힌 조합입니다.'}
-                    {index === 2 && '많은 사용자들이 선택한 인기 카드들로 구성했습니다.'}
-                  </p>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* 그룹 인기 카드 */}
-        <Card className="shadow-card overflow-hidden">
-          <CardHeader className="flex flex-col space-y-1.5 p-4 bg-secondary"> 
-            <CardTitle className="text-lg flex items-center text-primary">
-              <TrendingUp className="w-5 h-5 mr-2" />
-              {userGroup.name}이 많이 사용하는 카드
-            </CardTitle>
-          </CardHeader>
-          
-          <CardContent className="p-4 space-y-3"> 
-            {userGroup.popularCards.map((card, index) => (
-              <div 
-                key={index} 
-                className="flex items-center space-x-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors" 
-                onClick={() => handleCardClick(card.id)}
-              >
-                <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-success" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-sm">{card.name}</h4>
-                  <p className="text-xs text-muted-foreground">{card.bank}</p>
-                  <div className="flex items-center mt-1">
-                    <Users className="w-3 h-3 text-success mr-1" />
-                    <span className="text-xs text-muted-foreground">
-                      그룹 내 인기 카드
-                    </span>
-                  </div>
-                </div>
-                <div className="text-success">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* 액션 버튼 */}
-        <div className="space-y-3">
-          {/* --- [수정됨] --- */}
-          {/* 상단으로 이동시켰으므로 하단 버튼은 '설문 다시하기'만 남김 */}
-          <Button variant="outline" className="w-full" onClick={() => navigate('/survey')}>
+        {/* 하단 버튼 */}
+        <div className="pt-4">
+          <Button variant="outline" className="w-full h-12" onClick={() => navigate('/survey')}>
             설문 다시하기
           </Button>
-          {/* --- [수정 완료] --- */}
         </div>
+
       </div>
     </div>
   );

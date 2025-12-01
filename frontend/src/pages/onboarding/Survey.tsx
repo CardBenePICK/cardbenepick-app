@@ -1,92 +1,189 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { SurveyResponse, BenefitCategory } from '../../types';
-import { surveyQuestions, benefitCategoryNames } from '../../data/mockData';
-import { matchUserGroup, getCardCombinations } from '../../utils/cardRecommendation';
+import { Card, CardContent } from '@/components/ui/card';
+import { 
+  ArrowLeft, ArrowRight, Check, 
+  CreditCard, Car, Utensils, Plane, GraduationCap, HeartPulse,
+  Wallet, Bus, Coffee, Sofa, BookOpen, Smile, Briefcase, Baby, Sun, Users
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+// --- 설문 응답 타입 ---
+interface SurveyResponses {
+  ender: string;      // 성별
+  ageGroup: string;    // 연령대
+  lifeStage: string;   // 생애주기
+  monthlySpend: string;
+  hasCar: string;
+  diningFrequency: string;
+  hasLeisure: string;
+  hasEdu: string;
+  hasHealth: string;
+}
+
+// --- 질문 데이터 (아이콘 포함) ---
+const questions = [
+  // 1. 성별
+  {
+    id: 'gender',
+    icon: <span className="text-3xl">👫</span>,
+    question: "성별을 알려주세요.",
+    description: "성별에 따라 선호하는 혜택이 다를 수 있어요.",
+    options: [
+      { label: "남성", sub: "Male", value: '1', icon: <span className="text-2xl">👨</span> },
+      { label: "여성", sub: "Female", value: '2', icon: <span className="text-2xl">👩</span>},
+    ]
+  },
+  // 2. 연령대 (AGE) - API에 문자열 숫자("25")로 보낼 예정
+  {
+    id: 'ageGroup',
+    icon: <BookOpen className="w-8 h-8 text-green-500" />,
+    question: "현재 연령대가\n어떻게 되시나요?",
+    description: "나이대에 딱 맞는 카드를 찾아드릴게요.",
+    options: [
+      { label: "20대", sub: "대학생·취준생", value: '25', icon: <GraduationCap className="w-5 h-5" /> },
+      { label: "30대", sub: "사회초년생·직장인", value: '35', icon: <Briefcase className="w-5 h-5" /> },
+      { label: "40대", sub: "중견 직장인", value: '45', icon: <CreditCard className="w-5 h-5" /> },
+      { label: "50대 이상", sub: "은퇴 준비", value: '55', icon: <Sofa className="w-5 h-5" /> },
+    ]
+  },
+  // 3. 생애주기 (LIFE_STAGE)
+  {
+    id: 'lifeStage',
+    icon: <Coffee className="w-8 h-8 text-brown-500" />,
+    question: "현재 어떤 상황에\n해당하시나요?",
+    description: "라이프스타일에 맞는 혜택을 분석해요.",
+    options: [
+      // 1. 대학생
+      { label: "대학생", sub: "학업 열중", value: 'UNI', icon: <GraduationCap className="w-5 h-5" /> },
+      
+      // 2. 사회초년생
+      { label: "사회초년생", sub: "직장 생활 시작", value: 'NEW_JOB', icon: <Wallet className="w-5 h-5" /> },
+      
+      // 3. 신혼부부
+      { label: "신혼부부", sub: "달콤한 신혼", value: 'NEW_WED', icon: <HeartPulse className="w-5 h-5" /> },
+      
+      // 4. 영유아 자녀 부모 (CHILD_BABY)
+      { label: "영유아 자녀 부모", sub: "육아에 집중할 시기", value: 'CHILD_BABY', icon: <Smile className="w-5 h-5" /> },
+      
+      // 5. 청소년 자녀 부모 (CHILD_TEEN)
+      { label: "청소년 자녀 부모", sub: "자녀 교육비 지출", value: 'CHILD_TEEN', icon: <BookOpen className="w-5 h-5" /> },
+      
+      // 6. 성인 자녀 부모 (CHILD_UNI)
+      { label: "대학생 자녀 부모", sub: "학자금/생활비 지원", value: 'CHILD_UNI', icon: <Users className="w-5 h-5" /> },
+      
+      // 7. 액티브 시니어 (GOLLIFE)
+      { label: "액티브 시니어", sub: "여유롭고 활기찬 생활", value: 'GOLLIFE', icon: <Sun className="w-5 h-5" /> },
+      
+      // 8. 은퇴 준비기 (SECLIFE)
+      { label: "은퇴 준비기", sub: "제2의 인생 준비", value: 'SECLIFE', icon: <Coffee className="w-5 h-5" /> },
+      
+      // 9. 은퇴 (RETIRE)
+      { label: "은퇴", sub: "편안한 노후", value: 'RETIRE', icon: <Sofa className="w-5 h-5" /> },
+    ]
+  },
+
+  // 4. 한 달 카드 사용 금액 (Q_SPEND)
+  {
+    id: 'monthlySpend',
+    icon: <Wallet className="w-8 h-8 text-blue-500" />,
+    question: "한 달 카드 사용 금액이\n대략 어느 정도인가요?",
+    description: "소비 규모에 딱 맞는 혜택 등급을 찾아드릴게요.",
+    options: [
+      { label: "120만원 미만", sub: "알뜰형", value: '1_Low', icon: <CreditCard className="w-5 h-5" /> },
+      { label: "120만 ~ 150만원", sub: "실속형", value: '2_Mid', icon: <Wallet className="w-5 h-5" /> },
+      { label: "150만원 이상", sub: "여유형", value: '3_High', icon: <CreditCard className="w-5 h-5" /> },
+    ]
+  },
+  {
+    id: 'hasCar',
+    icon: <Car className="w-8 h-8 text-indigo-500" />,
+    question: "본인 소유의 차량을\n직접 운전하시나요?",
+    description: "주유 할인이나 정비 혜택이 필요한지 확인해요.",
+    options: [
+      { label: "네, 운전해요", sub: "월 주유 5만원 이상", value: 'Yes', icon: <Car className="w-5 h-5" /> },
+      { label: "아니요", sub: "대중교통 이용", value: 'No', icon: <Bus className="w-5 h-5" /> },
+    ]
+  },
+  {
+    id: 'diningFrequency',
+    icon: <Utensils className="w-8 h-8 text-orange-500" />,
+    question: "평소 외식이나 카페를\n얼마나 자주 가시나요?",
+    description: "맛집 탐방러를 위한 미식 혜택을 추천해 드려요.",
+    options: [
+      { label: "거의 안 가요", sub: "월 30만원 미만", value: '1_Low', icon: <Sofa className="w-5 h-5" /> },
+      { label: "가끔 가요", sub: "월 30만 ~ 50만원", value: '2_Mid', icon: <Coffee className="w-5 h-5" /> },
+      { label: "자주 가요", sub: "월 50만원 이상", value: '3_High', icon: <Utensils className="w-5 h-5" /> },
+    ]
+  },
+  {
+    id: 'hasLeisure',
+    icon: <Plane className="w-8 h-8 text-sky-500" />,
+    question: "여행이나 레저 활동을\n즐기시는 편인가요?",
+    description: "항공권, 숙박, 놀이공원 할인을 챙겨드릴까요?",
+    options: [
+      { label: "네, 좋아해요!", sub: "월 5만원 이상 소비", value: 'Yes', icon: <Plane className="w-5 h-5" /> },
+      { label: "집이 최고예요", sub: "홈캉스 선호", value: 'No', icon: <Sofa className="w-5 h-5" /> },
+    ]
+  },
+  {
+    id: 'hasEdu',
+    icon: <GraduationCap className="w-8 h-8 text-emerald-500" />,
+    question: "본인 또는 자녀를 위한\n교육비 지출이 있나요?",
+    description: "학원비, 학습지, 인터넷 강의 할인을 확인해요.",
+    options: [
+      { label: "네, 꽤 커요", sub: "월 10만원 이상", value: 'Yes', icon: <BookOpen className="w-5 h-5" /> },
+      { label: "거의 없어요", sub: "해당 없음", value: 'No', icon: <Smile className="w-5 h-5" /> },
+    ]
+  },
+
+  {
+    id: 'hasHealth',
+    icon: <HeartPulse className="w-8 h-8 text-rose-500" />,
+    question: "병원이나 약국을\n정기적으로 방문하시나요?",
+    description: "약국, 병원비 할인 혜택이 필요한지 알려주세요.",
+    options: [
+      { label: "네, 챙기는 편이에요", sub: "월 3만원 이상", value: 'Yes', icon: <HeartPulse className="w-5 h-5" /> },
+      { label: "아니요, 건강해요", sub: "방문 적음", value: 'No', icon: <Smile className="w-5 h-5" /> },
+    ]
+  }
+];
 
 const Survey = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
-  const [responses, setResponses] = useState<Partial<SurveyResponse>>({
-    spendingCategories: [],
-    preferredBenefits: [],
-    monthlyBudget: 0,
-    benefitPreference: 'multiple_small',
-    primarySpendingCategory: 'dining'
-  });
+  const [responses, setResponses] = useState<Partial<SurveyResponses>>({});
+  const [isAnimating, setIsAnimating] = useState(false); // 화면 전환 애니메이션용
 
-  const totalSteps = surveyQuestions.length;
+  const totalSteps = questions.length;
+  const currentQuestion = questions[currentStep];
 
-  const handleMultipleChoice = (value: string, checked: boolean) => {
-    const currentQuestion = surveyQuestions[currentStep];
-    if (currentQuestion.id === 'spending-categories') {
-      setResponses(prev => ({
-        ...prev,
-        spendingCategories: checked 
-          ? [...(prev.spendingCategories || []), value as BenefitCategory]
-          : (prev.spendingCategories || []).filter(item => item !== value)
-      }));
-    }
+  // 단계 변경 시 애니메이션 트리거
+  useEffect(() => {
+    setIsAnimating(true);
+    const timer = setTimeout(() => setIsAnimating(false), 300);
+    return () => clearTimeout(timer);
+  }, [currentStep]);
+
+  const handleOptionSelect = (value: string) => {
+    setResponses((prev) => ({
+      ...prev,
+      [currentQuestion.id]: value,
+    }));
+    
+    // 선택 시 자동으로 약간의 딜레이 후 다음으로 넘어가면 더 앱 같음 (선택적)
+    // setTimeout(handleNext, 200); 
   };
 
-  const handleSingleChoice = (value: string) => {
-    const currentQuestion = surveyQuestions[currentStep];
-    switch (currentQuestion.id) {
-      case 'monthly-budget':
-        setResponses(prev => ({ ...prev, monthlyBudget: parseInt(value) }));
-        break;
-      case 'benefit-preference':
-        setResponses(prev => ({ ...prev, benefitPreference: value as 'single_big' | 'multiple_small' }));
-        break;
-      case 'primary-category':
-        setResponses(prev => ({ ...prev, primarySpendingCategory: value as BenefitCategory }));
-        break;
-    }
-  };
-
-  const canProceed = () => {
-    const currentQuestion = surveyQuestions[currentStep];
-    switch (currentQuestion.id) {
-      case 'spending-categories':
-        return (responses.spendingCategories?.length || 0) > 0;
-      case 'monthly-budget':
-        return responses.monthlyBudget && responses.monthlyBudget > 0;
-      case 'benefit-preference':
-        return responses.benefitPreference !== undefined;
-      case 'primary-category':
-        return responses.primarySpendingCategory !== undefined;
-      default:
-        return true;
-    }
-  };
-
-  // --- [수정됨] ---
   const handleNext = () => {
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // 설문 완료 - 분석 로딩 페이지로 이동
-      const completeResponse = responses as SurveyResponse;
-      const userGroup = matchUserGroup(completeResponse);
-      const cardCombinations = getCardCombinations(completeResponse);
-      
-      // /recommendations 대신 /analysis-loading으로 이동
-      navigate('/analysis-loading', { 
-        state: { 
-          surveyResponse: completeResponse,
-          userGroup,
-          cardCombinations
-        }
-      });
+      // 완료 시
+      navigate('/survey-complete', { state: { surveyResult: responses } });
     }
   };
-  // --- [수정 완료] ---
 
   const handlePrevious = () => {
     if (currentStep > 0) {
@@ -94,133 +191,125 @@ const Survey = () => {
     }
   };
 
-  const currentQuestion = surveyQuestions[currentStep];
+  // 현재 질문의 답변 값
+  const currentAnswer = responses[currentQuestion.id as keyof SurveyResponses];
+  const progressPercent = ((currentStep + 1) / totalSteps) * 100;
 
   return (
-    <div className="app-container">
-      {/* Header */}
-      <div className="flex items-center p-4 border-b">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => navigate('/login')} // [수정] 로그인 페이지로 돌아가기
-          className="mr-3"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold">소비 성향 설문</h1>
-          <p className="text-sm text-muted-foreground">
-            {currentStep + 1} / {totalSteps}
-          </p>
+    <div className="min-h-screen bg-gray flex flex-col font-sans text-gray-900 max-w-[448px] mx-auto">  {/* --- 상단 헤더 & 진행바 --- */}
+      <div className="bg-white sticky top-0 z-20">
+        <div className="flex items-center justify-between px-4 h-14">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => currentStep === 0 ? navigate('/login') : handlePrevious()}
+            className="text-gray-500 hover:text-gray-900"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <span className="text-sm font-bold text-gray-400">
+            <span className="text-blue-600">{currentStep + 1}</span> / {totalSteps}
+          </span>
+          {/* 우측 여백용 빈 div */}
+          <div className="w-9" /> 
         </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="px-6 pt-4">
-        <div className="w-full bg-muted rounded-full h-2">
+        
+        {/* 그라데이션 진행바 */}
+        <div className="w-full h-1.5 bg-gray-100">
           <div 
-            className="bg-primary h-2 rounded-full transition-all duration-300"
-            style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
+            className="h-full bg-gradient-to-r from-blue-400 to-indigo-600 transition-all duration-500 ease-out rounded-r-full"
+            style={{ width: `${progressPercent}%` }}
           />
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 p-6">
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="text-lg">{currentQuestion.question}</CardTitle>
-          </CardHeader>
-          
-          <CardContent className="space-y-4">
-            {currentQuestion.type === 'multiple' ? (
-              // 복수 선택
-              <div className="space-y-3">
-                {currentQuestion.options.map((option) => (
-                  <div key={option.value} className="flex items-center space-x-3">
-                    <Checkbox
-                      id={option.value}
-                      checked={responses.spendingCategories?.includes(option.value as BenefitCategory) || false}
-                      onCheckedChange={(checked) => handleMultipleChoice(option.value, checked as boolean)}
-                    />
-                    <Label 
-                      htmlFor={option.value}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {option.label}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              // 단일 선택
-              <RadioGroup
-                value={
-                  currentQuestion.id === 'monthly-budget' ? responses.monthlyBudget?.toString() :
-                  currentQuestion.id === 'benefit-preference' ? responses.benefitPreference :
-                  currentQuestion.id === 'primary-category' ? responses.primarySpendingCategory :
-                  ''
-                }
-                onValueChange={handleSingleChoice}
-                className="space-y-3"
-              >
-                {currentQuestion.options.map((option) => (
-                  <div key={option.value} className="flex items-center space-x-3">
-                    <RadioGroupItem value={option.value} id={option.value} />
-                    <Label 
-                      htmlFor={option.value}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {option.label}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            )}
-          </CardContent>
-        </Card>
+      {/* --- 메인 컨텐츠 --- */}
+      <div className="flex-1 flex flex-col items-center justify-center px-5 py-8 overflow-y-auto w-full max-w-lg mx-auto">
+        
+        {/* 질문 섹션 (애니메이션 적용) */}
+        <div 
+          className={cn(
+            "w-full transition-all duration-300 ease-out transform",
+            isAnimating ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
+          )}
+        >
+          {/* 아이콘 & 질문 */}
+          <div className="mb-8 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-sm mb-6 border border-gray-100">
+              {currentQuestion.icon}
+            </div>
+            <h1 className="text-2xl font-bold leading-snug whitespace-pre-line mb-3 text-gray-800">
+              {currentQuestion.question}
+            </h1>
+            <p className="text-gray-500 text-sm">
+              {currentQuestion.description}
+            </p>
+          </div>
 
-        {/* 선택된 항목 요약 (복수 선택인 경우) */}
-        {currentQuestion.type === 'multiple' && responses.spendingCategories && responses.spendingCategories.length > 0 && (
-          <Card className="shadow-card mt-4">
-            <CardContent className="p-4">
-              <p className="text-sm font-medium mb-2">선택된 항목:</p>
-              <div className="flex flex-wrap gap-2">
-                {responses.spendingCategories.map((category) => (
-                  <span 
-                    key={category}
-                    className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full"
-                  >
-                    {benefitCategoryNames[category]}
-                  </span>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+          {/* 선택지 리스트 */}
+          <div className="space-y-3">
+            {currentQuestion.options.map((option) => {
+              const isSelected = currentAnswer === option.value;
+              return (
+                <div
+                  key={option.value}
+                  onClick={() => handleOptionSelect(option.value)}
+                  className={cn(
+                    "relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 active:scale-[0.98] group",
+                    isSelected 
+                      ? "border-blue-500 bg-blue-50/50 shadow-md" 
+                      : "border-gray-100 bg-white hover:border-blue-200 hover:shadow-sm"
+                  )}
+                >
+                  {/* 아이콘 박스 */}
+                  <div className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center mr-4 transition-colors",
+                    isSelected ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-500"
+                  )}>
+                    {option.icon}
+                  </div>
+
+                  {/* 텍스트 */}
+                  <div className="flex-1">
+                    <p className={cn("font-bold text-base", isSelected ? "text-blue-900" : "text-gray-700")}>
+                      {option.label}
+                    </p>
+                    <p className={cn("text-xs mt-0.5", isSelected ? "text-blue-500" : "text-gray-400")}>
+                      {option.sub}
+                    </p>
+                  </div>
+
+                  {/* 체크 아이콘 (선택 시 표시) */}
+                  <div className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center border transition-all",
+                    isSelected 
+                      ? "bg-blue-500 border-blue-500" 
+                      : "border-gray-200 bg-transparent"
+                  )}>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Navigation */}
-      <div className="p-6 border-t">
-        <div className="flex justify-between space-x-4">
-          <Button 
-            variant="outline" 
-            onClick={handlePrevious}
-            disabled={currentStep === 0}
-            className="flex-1"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            이전
-          </Button>
-          
+      {/* --- 하단 버튼 --- */}
+      <div className="p-5 bg-white border-t border-gray-100 sticky bottom-0 z-20">
+        <div className="max-w-lg mx-auto">
           <Button 
             onClick={handleNext}
-            disabled={!canProceed()}
-            className="flex-1 btn-gradient"
+            disabled={!currentAnswer}
+            className={cn(
+              "w-full h-14 text-lg font-bold rounded-xl shadow-lg transition-all duration-300",
+              !currentAnswer 
+                ? "bg-gray-200 text-gray-400 shadow-none"
+                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white hover:shadow-blue-500/30"
+            )}
           >
-            {currentStep === totalSteps - 1 ? '결과 보기' : '다음'}
-            {currentStep < totalSteps - 1 && <ArrowRight className="w-4 h-4 ml-2" />}
+            {currentStep === totalSteps - 1 ? '결과 확인하기' : '다음으로'}
+            {currentStep < totalSteps - 1 && <ArrowRight className="w-5 h-5 ml-2 opacity-80" />}
           </Button>
         </div>
       </div>
