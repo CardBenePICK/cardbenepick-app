@@ -190,12 +190,46 @@ const SurveyComplete = () => {
         console.warn("데이터 전송 중 오류 발생 (무시하고 진행):", e);
         // alert("전송 중 네트워크 오류 발생"); // [확인용] 필요시 주석 해제
     }
+
+    try {
+        // 보낼 데이터 구성
+        const agentPayload = {
+            user_id: "test_user_id", // 실제 구현시: user?.id || "guest"
+            cluster_id: selectedCluster, // 사용자가 최종 선택한 클러스터
+            preferred_categories: [], // [주의] 설문 결과에 카테고리가 있다면 여기에 넣어야 함
+            timestamp: new Date().toISOString()
+        };
+
+        console.log("📤 Sending to Main Backend:", agentPayload);
+
+        // 메인 백엔드 호출
+        const response = await api.post('/users/preferences', agentPayload);
+        
+        console.log("✅ Backend Response:", response.data);
+
+        // 성공 시 결과 페이지로 이동
+        setTimeout(() => {
+            setIsSubmitting(false);
+            navigate('/recommendations', { 
+                state: { 
+                    cluster: selectedCluster,
+                    recommendationData: response.data // 백엔드 응답 데이터 전달
+                } 
+            });
+        }, 500);
+
+    } catch (e) {
+        console.error("❌ Failed to send preferences to backend:", e);
+        setIsSubmitting(false);
+        // 에러가 나도 일단 넘어갈지, 사용자에게 알릴지 결정
+        alert("추천 정보를 저장하는 중 오류가 발생했습니다.");
+    }
     
 
-    setTimeout(() => {
-        setIsSubmitting(false);
-        navigate('/recommendations', { state: { cluster: selectedCluster } });
-    }, 500);
+    // setTimeout(() => {
+    //     setIsSubmitting(false);
+    //     navigate('/recommendations', { state: { cluster: selectedCluster } });
+    // }, 500);
   };
 
   // --- 4. 클러스터 컨텐츠 ---
