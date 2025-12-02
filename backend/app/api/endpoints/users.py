@@ -1,27 +1,56 @@
 # backend/app/api/endpoints/users.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlmodel import Session, select
+from fastapi.security import OAuth2PasswordBearer # 추가
+from jose import jwt, JWTError # 추가
 from app.api import deps
 from app.core.security import get_current_user_payload
 from app.db.models import UserMaster, UserAsset, CardTransaction
 from app.schemas.response import UserResponse
+from app.core.config import settings # 토큰 디코딩을 위해 설정 로드
 from typing import Any, List, Optional
 from pydantic import BaseModel
 import httpx # httpx 추가 (pip install httpx 필요)
 
 router = APIRouter()
 
+# -----------------------------------------------------------
+# [설정] 선택적 인증 (로그인 안 해도 접근 가능하게 함)
+# auto_error=False로 설정하면 토큰이 없어도 401 에러가 나지 않고 None이 반환됩니다.
+# -----------------------------------------------------------
+reusable_oauth2 = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/auth/login",
+    auto_error=False 
+)
 
+def get_current_user_optional(token: Optional[str] = Depends(reusable_oauth2)) -> Optional[dict]:
+    """
+    토큰이 있으면 디코딩해서 유저 정보를 반환하고,
+    토큰이 없거나 유효하지 않으면 None을 반환합니다 (에러 발생 X).
+    """
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        return payload
+    except JWTError:
+        return None
 
+# -----------------------------------------------------------
+# 데이터 모델
+# -----------------------------------------------------------
 class UserPreferenceCreate(BaseModel):
     user_id: Optional[str] = None
     cluster_id: int
     preferred_categories: List[str]
     timestamp: str
 
-# 에이전트 서버 주소 설정
+# 에이전트 서버 주소 (포트 8090 확인 필수)
 AGENT_SERVER_URL = "http://localhost:8090/api/ml/preferences"
+
 
 @router.get("/me", response_model=UserResponse)
 def read_user_me(
@@ -75,57 +104,118 @@ def delete_user_me(
         print(f"Withdrawal Error: {e}")
         raise HTTPException(status_code=500, detail=f"탈퇴 처리 중 오류 발생: {str(e)}")
     
-async def send_to_agent(payload: dict):
+# async def send_to_agent(payload: dict):
+#     async with httpx.AsyncClient() as client:
+#         try:
+#             print(f"🚀 Sending to Agent: {AGENT_SERVER_URL}")
+#             resp = await client.post(AGENT_SERVER_URL, json=payload, timeout=10.0)
+#             if resp.status_code == 200:
+#                 print(f"✅ Agent Success: {resp.json()}")
+#             else:
+#                 print(f"⚠️ Agent Failed: {resp.text}")
+#         except Exception as e:
+#             print(f"❌ Connection Error: {e}")
+
+# [수정] 결과를 반환하도록 변경된 전송 함수
+async def send_to_agent(payload: dict) -> dict:
     async with httpx.AsyncClient() as client:
         try:
             print(f"🚀 Sending to Agent: {AGENT_SERVER_URL}")
-            resp = await client.post(AGENT_SERVER_URL, json=payload, timeout=10.0)
+            # 타임아웃을 넉넉하게 설정 (LLM 생성 시간이 걸릴 수 있음)
+            resp = await client.post(AGENT_SERVER_URL, json=payload, timeout=30.0)
+            
             if resp.status_code == 200:
-                print(f"✅ Agent Success: {resp.json()}")
+                data = resp.json()
+                print(f"✅ Agent Success: {str(data)[:100]}...") # 로그 줄임
+                return data # Agent가 준 추천 결과를 리턴
             else:
                 print(f"⚠️ Agent Failed: {resp.text}")
+                return {"error": "Agent server returned error", "details": resp.text}
+                
         except Exception as e:
             print(f"❌ Connection Error: {e}")
+            return {"error": "Failed to connect to Agent server", "details": str(e)}
 
 @router.post("/preferences")
 async def receive_user_preferences(
     preference_data: UserPreferenceCreate,
-    background_tasks: BackgroundTasks # 백그라운드 작업 추가
+    # background_tasks: BackgroundTasks,  <-- 제거 (기다려야 하니까)
+    current_user_payload: Optional[dict] = Depends(get_current_user_optional)
 ) -> Any:
     """
-    프론트엔드 -> 백엔드 -> 에이전트 서버로 데이터 전달
+    [동기 처리] 프론트엔드 요청 -> 백엔드 -> Agent -> 결과 수신 -> 프론트엔드 응답
     """
-    print(f"===== [Backend] 데이터 수신 =====")
-    print(f"Cluster: {preference_data.cluster_id}")
     
-    # 1. 에이전트 서버로 전송 (백그라운드 실행으로 사용자 대기 시간 단축)
-    # Pydantic 모델을 dict로 변환하여 전송
-    background_tasks.add_task(send_to_agent, preference_data.dict())
-    
-    # 2. (선택사항) 필요하다면 여기서 메인 DB(PostgreSQL)에 저장하는 로직 추가
-    # crud.user_preference.create(db, preference_data) 
+    # 1. 유저 ID 결정
+    final_user_id = preference_data.user_id 
+    if current_user_payload:
+        token_user_id = current_user_payload.get("sub") or current_user_payload.get("user_id")
+        if token_user_id:
+            final_user_id = token_user_id
+    else:
+        if not final_user_id:
+            final_user_id = "guest_unknown"
 
+    preference_data.user_id = final_user_id
+
+    print(f"===== [Backend] RAG 요청 시작 (User: {final_user_id}) =====")
+    
+    # 2. [핵심 수정] Agent 서버로 보내고 결과를 기다림 (await)
+    agent_result = await send_to_agent(preference_data.dict())
+    
+    # 3. 결과 반환 (recommendation 키에 Agent 결과를 담아줌)
     return {
         "status": "success", 
-        "message": "데이터가 접수되어 추천 엔진으로 전송되었습니다.",
-        "received_data": preference_data
+        "message": "추천이 완료되었습니다.",
+        "user_type": "member" if current_user_payload else "guest",
+        "received_data": preference_data,
+        "recommendation": agent_result.get("recommendation", agent_result) # Agent 응답 구조에 따라 조정
     }
-    # @router.post("/preferences")
-    # async def receive_user_preferences(preference_data: UserPreferenceCreate) -> Any:
-    #     """
-    #     프론트엔드로부터 유저의 선호 정보(클러스터 + 카테고리)를 수신합니다.
-    #     """
-    #     print(f"===== [Backend] 통합 데이터 수신 =====")
-    #     print(f"User ID: {preference_data.user_id}")
-    #     print(f"Cluster: {preference_data.cluster_id}")
-    #     print(f"Categories: {preference_data.preferred_categories}")
-    #     print(f"Timestamp: {preference_data.timestamp}")
-    #     print("======================================")
-        
-    #     # TODO: 여기서 DB에 저장하는 로직을 추가하면 됩니다.
-        
-    #     return {
-    #         "status": "success", 
-    #         "message": "사용자 취향 데이터가 성공적으로 저장되었습니다.",
-    #         "received_data": preference_data
-    #     }
+
+
+# @router.post("/preferences")
+# async def receive_user_preferences(
+#     preference_data: UserPreferenceCreate,
+#     background_tasks: BackgroundTasks,
+#     current_user_payload: Optional[dict] = Depends(get_current_user_optional)
+# ) -> Any:
+#     """
+#     [하이브리드 모드]
+#     1. 로그인한 유저(Token 있음) -> 토큰에서 user_id 추출 (신뢰도 높음)
+#     2. 콜드스타트 유저(Token 없음) -> 프론트에서 보낸 user_id 사용 (테스트/비회원용)
+#     """
+    
+#     # 1. 유저 ID 결정 로직
+#     final_user_id = preference_data.user_id 
+
+#     if current_user_payload:
+#         # 로그인 된 상태라면 토큰의 ID를 신뢰하여 덮어씌움
+#         token_user_id = current_user_payload.get("sub") or current_user_payload.get("user_id")
+#         if token_user_id:
+#             final_user_id = token_user_id
+#             print(f"🔑 Authenticated User Detected: {final_user_id}")
+#     else:
+#         # 비로그인 상태
+#         print(f"👻 Guest/Cold-Start User: {final_user_id}")
+#         if not final_user_id:
+#             final_user_id = "guest_unknown"
+
+#     # 2. 데이터 업데이트 (결정된 user_id 반영)
+#     preference_data.user_id = final_user_id
+
+#     print(f"===== [Backend] 데이터 수신 (User: {final_user_id}) =====")
+#     print(f"Cluster: {preference_data.cluster_id}")
+    
+#     # 3. 에이전트 서버로 전송 (Background Task)
+#     background_tasks.add_task(send_to_agent, preference_data.dict())
+
+#     # 4. (옵션) 로그인한 유저라면 DB 저장 로직 등을 여기에 추가 가능
+#     # if current_user_payload:
+#     #     save_to_db(...)
+
+#     return {
+#         "status": "success", 
+#         "message": "데이터가 접수되어 추천 엔진으로 전송되었습니다.",
+#         "user_type": "member" if current_user_payload else "guest",
+#         "received_data": preference_data
+#     }

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, ThumbsUp, ThumbsDown, ArrowRight, RefreshCw, AlertCircle, HelpCircle, Check, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api'; // [주의] api 인스턴스 import 확인 필요
 
 // --- 1. 타입 정의 ---
 interface Candidate {
@@ -59,6 +60,9 @@ const SurveyComplete = () => {
 
   // --- 2. API 호출 ---
   useEffect(() => {
+    // [RAG 체크 1] 설문 결과 데이터 확인
+    console.log("📊 [RAG 체크 1] 전달받은 설문 데이터:", surveyResult);
+
     const fetchAnalysis = async () => {
       if (!surveyResult) {
         setError('설문 데이터가 없습니다.');
@@ -88,7 +92,7 @@ const SurveyComplete = () => {
         if (!response.ok) throw new Error('서버 오류');
 
         const data: PredictionResponse = await response.json();
-        console.log("✅ 예측 완료:", data);
+        console.log("✅ ML 서버 예측 완료:", data);
 
         // 데이터 정제
         const rawList = data.ranking || data.candidates || [];
@@ -146,9 +150,12 @@ const SurveyComplete = () => {
     };
 
     // 2. [추가] 외부 서버 활용용 데이터 준비 (클러스터 + 카테고리)
+    // [RAG 체크 2] 카테고리 데이터 확인 (이게 비어있으면 RAG가 정확하지 않음)
     const userCategories = Array.isArray(surveyResult?.preferredCategories) 
         ? surveyResult.preferredCategories 
         : [];
+    
+    console.log("🏷️ [RAG 체크 2] 선택된 카테고리:", userCategories);
 
     const integrationPayload: UserPreferencePayload = {
         cluster_id: selectedCluster, // 사용자가 최종 선택한 클러스터
@@ -162,50 +169,44 @@ const SurveyComplete = () => {
     console.log("2. 통합 데이터 (서비스 활용용):", integrationPayload);
     console.groupEnd();
     
+    // (A) ML 서버로 피드백 전송 (로그만 남기고 에러 무시)
     try {
-        // (A) ML 서버로 피드백 전송
         await fetch('http://localhost:9000/feedback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(finalPayload),
         });
-
-        // (B) 백엔드 서버로 통합 데이터 전송
-        const response = await fetch('http://localhost:8000/api/users/preferences', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(integrationPayload),
-        });
-        
-        if (response.ok) {
-            console.log("✅ 통합 데이터 백엔드 전송 성공!");
-            // alert("통합 데이터 전송 성공!"); // [확인용] 필요시 주석 해제
-        } else {
-            const errText = await response.text();
-            console.error("❌ 통합 데이터 전송 실패:", response.status, errText);
-            // alert(`전송 실패: ${response.status}`); // [확인용] 필요시 주석 해제
-        }
-
+        console.log("✅ ML 피드백 전송 완료");
     } catch (e) {
-        console.warn("데이터 전송 중 오류 발생 (무시하고 진행):", e);
-        // alert("전송 중 네트워크 오류 발생"); // [확인용] 필요시 주석 해제
+        console.warn("ML 피드백 전송 실패 (무시):", e);
     }
 
+    // (B) 백엔드(에이전트 연결)로 데이터 전송 및 RAG 결과 수신
     try {
         // 보낼 데이터 구성
         const agentPayload = {
             user_id: "test_user_id", // 실제 구현시: user?.id || "guest"
-            cluster_id: selectedCluster, // 사용자가 최종 선택한 클러스터
-            preferred_categories: [], // [주의] 설문 결과에 카테고리가 있다면 여기에 넣어야 함
+            cluster_id: selectedCluster, 
+            preferred_categories: userCategories, // [수정] 빈 배열 [] 대신 실제 데이터 사용
             timestamp: new Date().toISOString()
         };
 
-        console.log("📤 Sending to Main Backend:", agentPayload);
+        console.log("📤 [RAG 체크 3] 백엔드로 요청 보냄 (Payload):", agentPayload);
 
-        // 메인 백엔드 호출
+        // 메인 백엔드 호출 (api 인스턴스 사용 가정)
+        // 만약 api 인스턴스가 없다면 axios나 fetch로 대체하세요.
         const response = await api.post('/users/preferences', agentPayload);
         
-        console.log("✅ Backend Response:", response.data);
+        // [RAG 체크 4] 응답 데이터 확인
+        console.log("📥 [RAG 체크 4] 백엔드 응답 도착 (Status):", response.status);
+        console.log("📦 [RAG 체크 5] 응답 데이터 (Body):", response.data);
+
+        // RAG 결과가 있는지 확인
+        if (response.data && (response.data.recommendation || response.data.result)) {
+             console.log("💎 [RAG 체크 6] RAG 추천 결과 확인됨!");
+        } else {
+             console.warn("⚠️ [RAG 체크 6] RAG 추천 결과가 응답에 포함되지 않았습니다.");
+        }
 
         // 성공 시 결과 페이지로 이동
         setTimeout(() => {
@@ -219,17 +220,10 @@ const SurveyComplete = () => {
         }, 500);
 
     } catch (e) {
-        console.error("❌ Failed to send preferences to backend:", e);
+        console.error("❌ [RAG 에러] 백엔드 전송 실패:", e);
         setIsSubmitting(false);
-        // 에러가 나도 일단 넘어갈지, 사용자에게 알릴지 결정
-        alert("추천 정보를 저장하는 중 오류가 발생했습니다.");
+        alert("추천 정보를 불러오는 중 오류가 발생했습니다.");
     }
-    
-
-    // setTimeout(() => {
-    //     setIsSubmitting(false);
-    //     navigate('/recommendations', { state: { cluster: selectedCluster } });
-    // }, 500);
   };
 
   // --- 4. 클러스터 컨텐츠 ---
@@ -427,7 +421,7 @@ const SurveyComplete = () => {
             className={cn(
                 "w-full h-14 text-lg font-bold rounded-xl shadow-lg transition-all",
                 feedback 
-                    ? "btn-gradient hover:shadow-blue-500/20 active:scale-[0.98]"
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/20 active:scale-[0.98]"
                     : "bg-muted text-muted-foreground shadow-none cursor-not-allowed"
             )}
           >
