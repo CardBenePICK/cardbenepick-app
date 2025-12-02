@@ -1,24 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+// Card, CardContent는 현재 안 쓰이고 있어서 지워도 되지만, 혹시 몰라 뒀습니다.
+// import { Card, CardContent } from '@/components/ui/card'; 
 import { 
-  ArrowLeft, ArrowRight, 
+  ArrowLeft, ArrowRight, Check, 
   CreditCard, Car, Utensils, Plane, GraduationCap, HeartPulse,
-  Wallet, Bus, Coffee, Sofa, BookOpen, Smile, Briefcase, Users, Sun
+  Wallet, Bus, Coffee, Sofa, BookOpen, Smile, Briefcase, Users, Sun,
+  // --- 새로 추가된 아이콘들 ---
+  Fuel, Smartphone, Zap, Store, Bike, ShoppingBag, ShoppingCart, 
+  Croissant, MonitorPlay, Film, Stethoscope, School, PlaneTakeoff, 
+  Globe, Armchair, MousePointerClick
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // --- 설문 응답 타입 ---
 interface SurveyResponses {
-  gender: string;       // (오타 수정 ender -> gender)
-  ageGroup: string;    
-  lifeStage: string;   
+  gender: string;
+  ageGroup: string;
+  lifeStage: string;
   monthlySpend: string;
   hasCar: string;
   diningFrequency: string;
   hasLeisure: string;
   hasEdu: string;
   hasHealth: string;
+  preferredCategories: string[]; // 다중 선택을 위해 배열([])로 변경
 }
 
 // --- 질문 데이터 (그대로 유지) ---
@@ -35,6 +42,7 @@ const questions = [
     ]
   },
   // 2. 연령대
+  // 2. 연령대
   {
     id: 'ageGroup',
     icon: <BookOpen className="w-8 h-8 text-green-500" />,
@@ -48,6 +56,7 @@ const questions = [
     ]
   },
   // 3. 생애주기
+  // 3. 생애주기
   {
     id: 'lifeStage',
     icon: <Coffee className="w-8 h-8 text-brown-500" />,
@@ -56,7 +65,7 @@ const questions = [
     options: [
       { label: "대학생", sub: "학업 열중", value: 'UNI', icon: <GraduationCap className="w-5 h-5" /> },
       { label: "사회초년생", sub: "직장 생활 시작", value: 'NEW_JOB', icon: <Wallet className="w-5 h-5" /> },
-      { label: "신혼부부", sub: "신혼 생활 시작", value: 'NEW_WED', icon: <HeartPulse className="w-5 h-5" /> },
+      { label: "신혼부부", sub: "결혼 생활 시작", value: 'NEW_WED', icon: <HeartPulse className="w-5 h-5" /> },
       { label: "영유아 자녀 부모", sub: "육아에 집중할 시기", value: 'CHILD_BABY', icon: <Smile className="w-5 h-5" /> },
       { label: "청소년 자녀 부모", sub: "자녀 교육비 지출", value: 'CHILD_TEEN', icon: <BookOpen className="w-5 h-5" /> },
       { label: "대학생 자녀 부모", sub: "학자금/생활비 지원", value: 'CHILD_UNI', icon: <Users className="w-5 h-5" /> },
@@ -65,7 +74,7 @@ const questions = [
       { label: "은퇴", sub: "편안한 노후", value: 'RETIRE', icon: <Sofa className="w-5 h-5" /> },
     ]
   },
-  // 4. 소비 금액
+  // 4. 월 사용 금액
   {
     id: 'monthlySpend',
     icon: <Wallet className="w-8 h-8 text-blue-500" />,
@@ -77,7 +86,7 @@ const questions = [
       { label: "150만원 이상", sub: "여유형", value: '3_High', icon: <CreditCard className="w-5 h-5" /> },
     ]
   },
-  // 5. 차량
+  // 5. 자차 유무
   {
     id: 'hasCar',
     icon: <Car className="w-8 h-8 text-indigo-500" />,
@@ -88,7 +97,7 @@ const questions = [
       { label: "아니요", sub: "대중교통 이용", value: 'No', icon: <Bus className="w-5 h-5" /> },
     ]
   },
-  // 6. 외식
+  // 6. 외식 빈도
   {
     id: 'diningFrequency',
     icon: <Utensils className="w-8 h-8 text-orange-500" />,
@@ -100,7 +109,7 @@ const questions = [
       { label: "자주 가요", sub: "월 50만원 이상", value: '3_High', icon: <Utensils className="w-5 h-5" /> },
     ]
   },
-  // 7. 레저
+  // 7. 레저 활동
   {
     id: 'hasLeisure',
     icon: <Plane className="w-8 h-8 text-sky-500" />,
@@ -111,7 +120,7 @@ const questions = [
       { label: "집이 최고예요", sub: "홈캉스 선호", value: 'No', icon: <Sofa className="w-5 h-5" /> },
     ]
   },
-  // 8. 교육
+  // 8. 교육비
   {
     id: 'hasEdu',
     icon: <GraduationCap className="w-8 h-8 text-emerald-500" />,
@@ -122,7 +131,7 @@ const questions = [
       { label: "거의 없어요", sub: "해당 없음", value: 'No', icon: <Smile className="w-5 h-5" /> },
     ]
   },
-  // 9. 건강
+  // 9. 의료비  // 9. 건강
   {
     id: 'hasHealth',
     icon: <HeartPulse className="w-8 h-8 text-rose-500" />,
@@ -131,6 +140,45 @@ const questions = [
     options: [
       { label: "네, 챙기는 편이에요", sub: "월 3만원 이상", value: 'Yes', icon: <HeartPulse className="w-5 h-5" /> },
       { label: "아니요, 건강해요", sub: "방문 적음", value: 'No', icon: <Smile className="w-5 h-5" /> },
+    ]
+  },
+  // 10. (마지막) 선호 혜택 카테고리 (Top 20) - 다중 선택
+  {
+    id: 'preferredCategories',
+    type: 'multi-select', 
+    icon: <Wallet className="w-8 h-8 text-purple-500" />,
+    question: "가장 혜택을 받고 싶은\n영역을 선택해주세요.",
+    description: "여러 개 선택하시면 맞춤형 카드를 찾아드려요.",
+    options: [
+      // [1] 고정비/필수
+      { label: "대중교통", sub: "버스/지하철", value: 'TRANSPORT', icon: <Bus className="w-4 h-4" /> },
+      { label: "주유", sub: "L당 할인", value: 'FUEL', icon: <Fuel className="w-4 h-4" /> },
+      { label: "통신", sub: "요금 할인", value: 'TELECOM', icon: <Smartphone className="w-4 h-4" /> },
+      { label: "공과금", sub: "전기/수도", value: 'UTILITIES', icon: <Zap className="w-4 h-4" /> },
+      
+      // [2] 식생활
+      { label: "카페", sub: "스타벅스 등", value: 'CAFE', icon: <Coffee className="w-4 h-4" /> },
+      { label: "편의점", sub: "GS25/CU", value: 'CONVENIENCE', icon: <Store className="w-4 h-4" /> },
+      { label: "배달앱", sub: "배민/요기요", value: 'DELIVERY', icon: <Bike className="w-4 h-4" /> },
+      { label: "음식점", sub: "점심/저녁", value: 'DINING', icon: <Utensils className="w-4 h-4" /> },
+      
+      // [3] 쇼핑
+      { label: "온라인쇼핑", sub: "쿠팡/네이버", value: 'ONLINE_SHOP', icon: <MousePointerClick className="w-4 h-4" /> },
+      { label: "대형마트", sub: "이마트/홈플", value: 'MART', icon: <ShoppingCart className="w-4 h-4" /> },
+      { label: "백화점", sub: "신세계/롯데", value: 'DEPT_STORE', icon: <ShoppingBag className="w-4 h-4" /> },
+      { label: "베이커리", sub: "파바/뚜레", value: 'BAKERY', icon: <Croissant className="w-4 h-4" /> },
+      
+      // [4] 라이프/여가
+      { label: "OTT", sub: "넷플/유튜브", value: 'OTT', icon: <MonitorPlay className="w-4 h-4" /> },
+      { label: "영화", sub: "CGV/롯데", value: 'MOVIE', icon: <Film className="w-4 h-4" /> },
+      { label: "병원/약국", sub: "의료비", value: 'HOSPITAL', icon: <Stethoscope className="w-4 h-4" /> },
+      { label: "학원", sub: "교육비", value: 'ACADEMY', icon: <School className="w-4 h-4" /> },
+      
+      // [5] 트렌드/특화
+      { label: "간편결제", sub: "페이 적립", value: 'PAY', icon: <Smartphone className="w-4 h-4" /> },
+      { label: "해외이용", sub: "직구/현지", value: 'OVERSEAS', icon: <Globe className="w-4 h-4" /> },
+      { label: "항공", sub: "마일리지", value: 'AIRLINE', icon: <PlaneTakeoff className="w-4 h-4" /> },
+      { label: "라운지", sub: "공항 혜택", value: 'LOUNGE', icon: <Armchair className="w-4 h-4" /> },
     ]
   }
 ];
@@ -150,17 +198,37 @@ const Survey = () => {
     return () => clearTimeout(timer);
   }, [currentStep]);
 
+  // --- [로직 수정됨] 답변 선택 핸들러 (단일/다중 분기 처리) ---
   const handleOptionSelect = (value: string) => {
-    setResponses((prev) => ({
-      ...prev,
-      [currentQuestion.id]: value,
-    }));
+    // 다중 선택인지 확인 (마지막 질문 체크)
+    const isMultiSelect = currentQuestion.id === 'preferredCategories';
+
+    setResponses((prev) => {
+      if (isMultiSelect) {
+        // [다중 선택 로직]
+        const currentList = (prev.preferredCategories as string[]) || [];
+        if (currentList.includes(value)) {
+          // 이미 있으면 제거 (Toggle Off)
+          return { ...prev, preferredCategories: currentList.filter((item) => item !== value) };
+        } else {
+          // 없으면 추가 (Toggle On)
+          return { ...prev, preferredCategories: [...currentList, value] };
+        }
+      } else {
+        // [단일 선택 로직] 기존 값 덮어쓰기
+        return { ...prev, [currentQuestion.id]: value };
+      }
+    });
+
+    // 단일 선택일 때만 자동 넘김 효과 (원하면 주석 해제)
+    // if (!isMultiSelect) setTimeout(handleNext, 200);
   };
 
   const handleNext = () => {
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     } else {
+      // 완료 시 결과 페이지로 이동
       navigate('/survey-complete', { state: { surveyResult: responses } });
     }
   };
@@ -171,6 +239,7 @@ const Survey = () => {
     }
   };
 
+  // 현재 질문에 대한 응답 가져오기
   const currentAnswer = responses[currentQuestion.id as keyof SurveyResponses];
   const progressPercent = ((currentStep + 1) / totalSteps) * 100;
 
@@ -227,47 +296,75 @@ const Survey = () => {
             </p>
           </div>
 
-          {/* 선택지 리스트 */}
-          <div className="space-y-4">
+          {/* --- [UI 수정됨] 선택지 리스트 (그리드 vs 리스트 분기) --- */}
+          <div className={cn(
+            // 마지막 질문(20개 항목)일 때는 3열 그리드, 나머지는 수직 리스트
+            currentQuestion.id === 'preferredCategories' 
+              ? "grid grid-cols-3 gap-3" 
+              : "space-y-3"
+          )}>
             {currentQuestion.options.map((option) => {
-              const isSelected = currentAnswer === option.value;
+              // 선택 여부 판별 (배열 vs 문자열)
+              let isSelected = false;
+              if (Array.isArray(currentAnswer)) {
+                isSelected = currentAnswer.includes(option.value);
+              } else {
+                isSelected = currentAnswer === option.value;
+              }
+
               return (
                 <div
                   key={option.value}
                   onClick={() => handleOptionSelect(option.value)}
                   // [수정] 기본 회색박스(border-transparent) -> 선택 시 파란색 박스/테두리
                   className={cn(
-                    "relative flex items-center justify-between p-5 rounded-2xl cursor-pointer transition-all duration-200 border-2",
+                    "relative flex items-center rounded-xl border-2 cursor-pointer transition-all duration-200 active:scale-[0.98] group",
+                    // 그리드형이면 세로 배치(flex-col) & 중앙 정렬, 리스트형이면 가로 배치(flex-row)
+                    currentQuestion.id === 'preferredCategories' 
+                      ? "flex-col text-center p-3 justify-center h-full" 
+                      : "flex-row p-4",
                     isSelected 
                       ? "bg-blue-50 border-blue-500 shadow-sm" 
                       : "bg-gray-50 border-transparent hover:bg-gray-100"
                   )}
                 >
-                  <div className="flex items-center gap-4">
-                    {/* 아이콘 원형 배경 (흰색) */}
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm">
-                      {option.icon}
-                    </div>
-
-                    <div className="flex flex-col text-left">
-                      <span className={cn("font-bold text-lg", isSelected ? "text-blue-700" : "text-gray-900")}>
-                        {option.label}
-                      </span>
-                      <span className="text-sm text-gray-400">
-                        {option.sub}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* [수정] 체크 아이콘 대신 라디오 버튼 스타일 적용 */}
+                  {/* 옵션 아이콘 */}
                   <div className={cn(
-                    "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                    isSelected 
-                      ? "bg-blue-500 border-blue-500" 
-                      : "border-gray-300 bg-white"
+                    "rounded-full flex items-center justify-center transition-colors",
+                    // 그리드형은 아이콘을 위로(mb-2), 리스트형은 옆으로(mr-4)
+                    currentQuestion.id === 'preferredCategories' ? "w-10 h-10 mb-2" : "w-10 h-10 mr-4",
+                    isSelected ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-500"
                   )}>
-                    {isSelected && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+                    {option.icon}
                   </div>
+
+                  {/* 텍스트 */}
+                  <div className={cn("flex-1", currentQuestion.id === 'preferredCategories' && "w-full")}>
+                    <p className={cn(
+                      "font-bold", 
+                      // 그리드형은 폰트 작게
+                      currentQuestion.id === 'preferredCategories' ? "text-sm" : "text-base",
+                      isSelected ? "text-blue-900" : "text-gray-700"
+                    )}>
+                      {option.label}
+                    </p>
+                    <p className={cn(
+                      "text-xs mt-0.5 break-keep", 
+                      isSelected ? "text-blue-500" : "text-gray-400"
+                    )}>
+                      {option.sub}
+                    </p>
+                  </div>
+
+                  {/* 단일 선택일 때만 우측 체크 표시 */}
+                  {currentQuestion.id !== 'preferredCategories' && (
+                    <div className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center border transition-all",
+                      isSelected ? "bg-blue-500 border-blue-500" : "border-gray-200 bg-transparent"
+                    )}>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                    </div>
+                  )}
                 </div>
               );
             })}
