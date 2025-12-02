@@ -111,6 +111,7 @@ __pycache__/
 *.pyo
 *.pyd
 
+
 # 이미지
 *.png
 *.jpg

@@ -1,9 +1,33 @@
 import os
+from pydantic_settings import BaseSettings # pydantic v2
 from dotenv import load_dotenv
 
 # .env 파일 로드
 load_dotenv()
 
+class Settings(BaseSettings):
+    API_V1_STR: str = "/api/v1"
+    DATABASE_URL: str = os.getenv("DATABASE_URL")
+    
+    # [보안 키 설정]
+    # 실제 배포 시엔 .env 파일에 반드시 SECRET_KEY를 설정해야 합니다.
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "temporary-secret-key-please-change")
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
+    
+    # 토큰 유효기간
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24 * 7))
+    REGISTRATION_TOKEN_EXPIRE_MINUTES: int = 10
+
+    # 이미지 경로
+    IMAGE_BASE_URL: str = "http://localhost:8080/images"
+
+    class Config:
+        case_sensitive = True
+        # .env 파일이 있으면 우선 읽습니다
+        env_file = ".env"
+
+# 전역 설정 객체 생성
+settings = Settings()
 DATABASE_URL: str = os.getenv("DATABASE_URL")
 SECRET_KEY: str = os.getenv("SECRET_KEY")
 ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
