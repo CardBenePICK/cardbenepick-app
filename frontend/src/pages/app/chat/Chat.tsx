@@ -7,7 +7,6 @@ import { ArrowLeft, Send, BarChart3, CreditCard, TrendingUp } from 'lucide-react
 import { ChatMessage, PaymentQuery } from '../../../types';
 import { getCardRecommendations, inferCategoryFromMerchant } from '../../../utils/cardRecommendation';
 import { sampleCards } from '../../../data/mockData';
-//[임시 2]
 import { HelpCircle, ChevronDown } from 'lucide-react'; // 상단 import에 추가 필요!
 
 // Chat.tsx 상단
@@ -182,7 +181,6 @@ const Chat = () => {
   };
 
   // --- [수정됨] ---
-  // [임시임시]
   // Chat.tsx 내부 handleSendMessage 수정
 
 const handleSendMessage = async () => {
@@ -211,18 +209,6 @@ const handleSendMessage = async () => {
         body: new URLSearchParams({ 'query': userMessage })
       });
     
-    // 헤더에 토큰 포함시키기
-    // try {
-    //   // 1. 서버에 요청은 보냄 (로딩 시간 연출 + 실제 통신)
-    //   const response = await fetch('http://localhost:8090/chat_react', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    //     body: new URLSearchParams({ 'query': userMessage })
-    //   });
-
-      // 2. 응답이 오면 내용은 무시하고! 
-      //    우리가 준비한 'FIXED_CARD_DATA'를 메시지에 담음    
-
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
       }
@@ -235,8 +221,12 @@ const handleSendMessage = async () => {
       if (isValidJson(data.response)){
         const recommend_data = JSON.parse(data.response);
         if ("recommended_card" in recommend_data){ // 혜택 계산을 해서 나왔을 경우         
-          
-          const recommend_cards_data = []
+          // [수정 전] 단순히 배열에 push 하던 방식
+          // const recommend_cards_data = [] 
+
+          // [수정 후] 중복 제거를 위해 Map 사용
+          const uniqueCardsMap = new Map();
+
           let merchant = ""
           let price_val = ""
 
@@ -252,20 +242,67 @@ const handleSendMessage = async () => {
               // [수정된 부분] merchant, price, benefit_id 추가 저장 (props 전달용)
               merchant: merchant,
               price: price_val,
-              benefit_id: card_r.benefit_id, // [핵심] 챗봇 응답에 benefit_id가 있다고 가정 card_r.benefit_id
+              benefit_id: card_r.benefit_id, 
 
               desc: card_r.final_val +'원 결제 예정',
               detail: card_r.reason,
               color: 'from-blue-700 to-blue-500'
             };
-            recommend_cards_data.push(newCard)
+
+            // [추가된 로직] ID 중복 체크 및 혜택 비교
+            if (!uniqueCardsMap.has(newCard.id)) {
+                // 1. 맵에 해당 카드 ID가 없으면 추가
+                uniqueCardsMap.set(newCard.id, newCard);
+            } else {
+                // 2. 이미 존재하는 경우, 기존 저장된 카드와 현재 카드의 혜택 비교
+                const existingCard = uniqueCardsMap.get(newCard.id);
+                if (newCard.benefit > existingCard.benefit) {
+                    // 현재 카드의 혜택이 더 크면 교체
+                    uniqueCardsMap.set(newCard.id, newCard);
+                }
+            }
+            // recommend_cards_data.push(newCard) // [삭제] 기존 push 방식 제거
           }
 
-          // 혜택이 가장 높은 카드가 가장 위로 올라오도록.
+          // [추가] Map의 값들만 추출하여 배열로 변환
+          const recommend_cards_data = Array.from(uniqueCardsMap.values());
+
+          // 혜택이 가장 높은 카드가 가장 위로 올라오도록 정렬
           recommend_cards_data.sort((a, b) => b.benefit - a.benefit);
 
           addMessage(merchant + "에서 " + price_val + "원 결제 시, 추천 카드를 찾았습니다!", 'bot');
           addMessage("", 'bot', { recommendations: recommend_cards_data });
+        
+          // const recommend_cards_data = []
+          // let merchant = ""
+          // let price_val = ""
+
+          // for (const card_r of recommend_data.cards){
+          //   merchant = card_r.merchant_name;
+          //   price_val = card_r.price;
+
+          //   const newCard =
+          //   {
+          //     id: card_r.card_id,
+          //     name: card_r.card,
+          //     benefit: card_r.bene_val,
+          //     // [수정된 부분] merchant, price, benefit_id 추가 저장 (props 전달용)
+          //     merchant: merchant,
+          //     price: price_val,
+          //     benefit_id: card_r.benefit_id, // [핵심] 챗봇 응답에 benefit_id가 있다고 가정 card_r.benefit_id
+
+          //     desc: card_r.final_val +'원 결제 예정',
+          //     detail: card_r.reason,
+          //     color: 'from-blue-700 to-blue-500'
+          //   };
+          //   recommend_cards_data.push(newCard)
+          // }
+
+          // // 혜택이 가장 높은 카드가 가장 위로 올라오도록.
+          // recommend_cards_data.sort((a, b) => b.benefit - a.benefit);
+
+          // addMessage(merchant + "에서 " + price_val + "원 결제 시, 추천 카드를 찾았습니다!", 'bot');
+          // addMessage("", 'bot', { recommendations: recommend_cards_data });
         }
         // addMessage(data.response + "\n\n 이렇습니다." || "답변을 받았습니다.", 'bot', { recommendations: data.cards });  
       }else{
@@ -281,54 +318,12 @@ const handleSendMessage = async () => {
       setIsLoading(false); // 로딩 끝
     }
   };
-  // const handleSendMessage = async () => {
-  //   if (!inputValue.trim() || isLoading) return; // 로딩 중이면 중복 전송 방지
-
-  //   const userMessage = inputValue;
-  //   addMessage(userMessage, 'user');
-  //   setInputValue('');
-  //   setIsLoading(true); // 로딩 시작
-
-  //   try {
-  //     // 서버로 POST 요청 전송
-  //     const response = await fetch('http://localhost:8090/chat_react', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/x-www-form-urlencoded', // 폼 데이터 전송 방식
-  //         // 만약 JSON으로 보내고 싶다면 'application/json'을 사용하고 body를 JSON.stringify({ query: userMessage })로 변경
-  //       },
-  //       // Jinja 템플릿의 form 방식과 호환되도록 x-www-form-urlencoded 형식으로 전송
-  //       body: new URLSearchParams({
-  //         'query': userMessage 
-  //       })
-  //     });
-
-  //     if (!response.ok) {
-  //       throw new Error(`Server error: ${response.status}`);
-  //     }
-  //     console.log("chat-response", response)
-  //     // 서버 응답 처리 (JSON으로 온다고 가정)
-  //     const data = await response.json();
-      
-  //     // 서버 응답 구조에 맞춰 메시지 추가
-  //     // 예: { "response": "추천 카드는...", "cards": [...] } 라고 가정
-  //     addMessage(data.response || "답변을 받았습니다.", 'bot', { recommendations: data.cards });
-
-  //   } catch (error) {
-  //     console.error('Failed to send message:', error);
-  //     addMessage("죄송합니다. 서버와 통신 중 오류가 발생했습니다.", 'bot');
-  //   } finally {
-  //     setIsLoading(false); // 로딩 종료
-  //   }
-  // };
-  // // --- [수정 완료] ---
-
 
   // --- [수정됨] ---
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'spending':
-        navigate('/app/spending'); // 경로 수정
+        navigate('/app/analysis/detail'); // 경로 수정
         break;
       case 'performance':
         navigate('/app/performance'); // 경로 수정
@@ -353,41 +348,6 @@ const handleSendMessage = async () => {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* {messages.map((message) => (
-          <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={message.type === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}>
-              <p className="text-sm">{message.content}</p>
-              
-              {message.data?.recommendations && (
-                <div className="mt-3 space-y-2">
-                  {message.data.recommendations.map((rec: any, index: number) => (
-                    <Card 
-                      key={index} 
-                      className="cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => handleCardRecommendationClick(rec.card.id)}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                            <CreditCard className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm">{rec.card.name}</h4>
-                            <p className="text-xs text-muted-foreground">{rec.reason}</p>
-                            <p className="text-xs font-medium" style={{color: "hsl(var(--success))"}}>
-                              예상 혜택: {rec.expectedBenefit.toLocaleString()}원
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ))} */}
-        
         {/* 임시 4 */}
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
