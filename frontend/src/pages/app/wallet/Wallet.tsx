@@ -172,7 +172,7 @@ const Wallet = () => {
     return () => { api.off("select", onSelect); };
   }, [api, location.state, navigate, assets]);
 
-  const handlePayment = async () => {
+  const handlePayment = async () => {   
     const currentItem = carouselItems[activeIndex];
     if (!currentItem?.originalAsset) return; // Optional chaining 추가
 
@@ -202,8 +202,36 @@ const Wallet = () => {
         if (!response.ok) throw new Error('승인 거절');
 
         const result = await response.json();
-
-        setTimeout(() => {
+        
+        
+        const token = localStorage.getItem('token');
+        
+        const point_earn_response = await fetch('http://127.0.0.1:8000/api/points/earn', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            benefit_id: benefitId,
+            amount: discountAmount,
+            description: merchant
+          })
+        });
+        
+        const data = await point_earn_response.json();
+        console.log('적립 결과:', data);
+      
+        const get_point_response = await fetch('http://127.0.0.1:8000/api/points/balance', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const point_data = await get_point_response.json();
+    
+        setTimeout( async() => {
             setPaymentStatus('activated');
             toast({
                 title: "결제 성공",
@@ -217,9 +245,9 @@ const Wallet = () => {
                 
                 // RewardCelebration에 전달할 데이터 설정
                 setRewardData({
-                    savingsAmount: result.discount_amount || parseInt(amount) * 0.1, // API에서 할인 금액 받거나 임시로 10%
-                    totalPoint: result.total_points || 50000, // API에서 총 적립 포인트 받기
-                    usageCount: result.usage_count || 12 // API에서 사용 횟수 받기
+                    savingsAmount: discountAmount || parseInt(amount) * 0.1, // API에서 할인 금액 받거나 임시로 10%
+                    totalPoint: point_data.total_point || 0, // API에서 총 적립 포인트 받기
+                    usageCount: point_data.earn_count || 0 // API에서 사용 횟수 받기
                 });
                 
                 // RewardCelebration 표시

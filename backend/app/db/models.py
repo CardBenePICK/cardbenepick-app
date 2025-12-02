@@ -299,3 +299,25 @@ class CardBenefit(SQLModel, table=True):
     
     # MCC 코드 (업종 코드)
     mcc_code: Optional[Any] = Field(default=None, sa_column=Column(JSON))
+
+
+class PointLedger(SQLModel, table=True):
+    """포인트 변동 이력 (원장)"""
+    __tablename__ = "point_ledger"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(..., index=True)
+    amount: int = Field(..., description="양수: 적립, 음수: 사용")
+    type: str = Field(..., max_length=20, description="EARN, USE, CANCEL, EXPIRE")
+    used_benefit_id: Optional[int] = Field(default=None)
+    description: Optional[str] = Field(default=None, max_length=255)
+    created_at: datetime = Field(default_factory=lambda: datetime.now().replace(microsecond=0))
+
+class PointBalance(SQLModel, table=True):
+    """사용자별 포인트 잔액"""
+    __tablename__ = "point_balance"
+    
+    user_id: int = Field(primary_key=True)
+    total_point: int = Field(default=0)
+    earn_count: int = Field(default=0)
+    last_updated_at: datetime = Field(default_factory=lambda: datetime.now().replace(microsecond=0))
