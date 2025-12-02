@@ -110,3 +110,5 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+# 사진
+public/images/
