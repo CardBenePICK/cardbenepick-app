@@ -384,7 +384,7 @@ import { Button } from '@/components/ui/button';
 // Card, CardContent는 현재 안 쓰이고 있어서 지워도 되지만, 혹시 몰라 뒀습니다.
 // import { Card, CardContent } from '@/components/ui/card'; 
 import { 
-  ArrowLeft, ArrowRight, 
+  ArrowLeft, ArrowRight, Check,
   CreditCard, Car, Utensils, Plane, GraduationCap, HeartPulse,
   Wallet, Bus, Coffee, Sofa, BookOpen, Smile, Briefcase, Users, Sun,
   // --- 새로 추가된 아이콘들 ---
@@ -396,9 +396,6 @@ import { cn } from '@/lib/utils';
 
 // --- 설문 응답 타입 ---
 interface SurveyResponses {
-  gender: string;       // (오타 수정 ender -> gender)
-  ageGroup: string;    
-  lifeStage: string;   
   gender: string;
   ageGroup: string;
   lifeStage: string;
@@ -570,7 +567,6 @@ const Survey = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [responses, setResponses] = useState<Partial<SurveyResponses>>({});
-  const [isAnimating, setIsAnimating] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
   const totalSteps = questions.length;
