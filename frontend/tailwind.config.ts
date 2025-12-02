@@ -1,12 +1,29 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
+import type { Config } from "tailwindcss";
+import tailwindAnimate from "tailwindcss-animate";
+
+export default {
   darkMode: ["class"],
   content: [
-    "./src/**/*.{js,jsx,ts,tsx}",
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
   ],
+  prefix: "",
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
-      // CSS 변수를 Tailwind 색상으로 연결
+      // 1. 폰트 설정: Pretendard
+      fontFamily: {
+        sans: ["Pretendard", "sans-serif"],
+      },
+      // 2. 색상 설정: CSS 변수와 연결
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -41,36 +58,50 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // 앱 전용 색상
+        // 새로 추가된 커스텀 포인트 컬러
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
         info: "hsl(var(--info))",
+        
+        // 기존 사이드바 설정 유지
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar-background))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          primary: "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+          border: "hsl(var(--sidebar-border))",
+          ring: "hsl(var(--sidebar-ring))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      // 기존 애니메이션 + 새 bounce-in 추가
       keyframes: {
-        'bounce-in': {
-          '0%': { 
-            transform: 'scale(0.3)', 
-            opacity: '0' 
-          },
-          '50%': { 
-            transform: 'scale(1.05)' 
-          },
-          '100%': { 
-            transform: 'scale(1)', 
-            opacity: '1' 
-          }
-        }
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "bounce-in": {
+          "0%": { transform: "scale(0.3)", opacity: "0" },
+          "50%": { transform: "scale(1.05)" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
       },
       animation: {
-        'bounce-in': 'bounce-in 0.5s ease-out'
-      }
-    }
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+        "bounce-in": "bounce-in 0.5s ease-out",
+      },
+    },
   },
-  plugins: [],
-}
+  // require 대신 import한 모듈 사용
+  plugins: [tailwindAnimate],
+} satisfies Config;

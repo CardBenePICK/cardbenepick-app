@@ -384,9 +384,9 @@ import { Button } from '@/components/ui/button';
 // Card, CardContent는 현재 안 쓰이고 있어서 지워도 되지만, 혹시 몰라 뒀습니다.
 // import { Card, CardContent } from '@/components/ui/card'; 
 import { 
-  ArrowLeft, ArrowRight, Check, 
+  ArrowLeft, ArrowRight, 
   CreditCard, Car, Utensils, Plane, GraduationCap, HeartPulse,
-  Wallet, Bus, Coffee, Sofa, BookOpen, Smile, Briefcase, Baby, Sun, Users,
+  Wallet, Bus, Coffee, Sofa, BookOpen, Smile, Briefcase, Users, Sun,
   // --- 새로 추가된 아이콘들 ---
   Fuel, Smartphone, Zap, Store, Bike, ShoppingBag, ShoppingCart, 
   Croissant, MonitorPlay, Film, Stethoscope, School, PlaneTakeoff, 
@@ -396,6 +396,9 @@ import { cn } from '@/lib/utils';
 
 // --- 설문 응답 타입 ---
 interface SurveyResponses {
+  gender: string;       // (오타 수정 ender -> gender)
+  ageGroup: string;    
+  lifeStage: string;   
   gender: string;
   ageGroup: string;
   lifeStage: string;
@@ -408,7 +411,7 @@ interface SurveyResponses {
   preferredCategories: string[]; // 다중 선택을 위해 배열([])로 변경
 }
 
-// --- 질문 데이터 (아이콘 포함) ---
+// --- 질문 데이터 (그대로 유지) ---
 const questions = [
   // 1. 성별
   {
@@ -422,18 +425,20 @@ const questions = [
     ]
   },
   // 2. 연령대
+  // 2. 연령대
   {
     id: 'ageGroup',
     icon: <BookOpen className="w-8 h-8 text-green-500" />,
     question: "현재 연령대가\n어떻게 되시나요?",
     description: "나이대에 딱 맞는 카드를 찾아드릴게요.",
     options: [
-      { label: "20대", sub: "대학생·취준생", value: '25', icon: <GraduationCap className="w-5 h-5" /> },
-      { label: "30대", sub: "사회초년생·직장인", value: '35', icon: <Briefcase className="w-5 h-5" /> },
+      { label: "20대", sub: "대학생·취준생.사회초년생", value: '25', icon: <GraduationCap className="w-5 h-5" /> },
+      { label: "30대", sub: "예비직장인·직장인", value: '35', icon: <Briefcase className="w-5 h-5" /> },
       { label: "40대", sub: "중견 직장인", value: '45', icon: <CreditCard className="w-5 h-5" /> },
       { label: "50대 이상", sub: "은퇴 준비", value: '55', icon: <Sofa className="w-5 h-5" /> },
     ]
   },
+  // 3. 생애주기
   // 3. 생애주기
   {
     id: 'lifeStage',
@@ -509,7 +514,7 @@ const questions = [
       { label: "거의 없어요", sub: "해당 없음", value: 'No', icon: <Smile className="w-5 h-5" /> },
     ]
   },
-  // 9. 의료비
+  // 9. 의료비  // 9. 건강
   {
     id: 'hasHealth',
     icon: <HeartPulse className="w-8 h-8 text-rose-500" />,
@@ -565,6 +570,7 @@ const Survey = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [responses, setResponses] = useState<Partial<SurveyResponses>>({});
+  const [isAnimating, setIsAnimating] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
   const totalSteps = questions.length;
@@ -622,47 +628,51 @@ const Survey = () => {
   const progressPercent = ((currentStep + 1) / totalSteps) * 100;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900 max-w-[448px] mx-auto shadow-xl">
+    // [수정] 전체 높이 h-screen 설정, 배경 흰색, 하단 고정을 위한 flex-col
+    <div className="flex flex-col h-screen bg-white font-sans text-gray-900 max-w-[448px] mx-auto shadow-2xl"> 
       
-      {/* --- 상단 헤더 & 진행바 --- */}
-      <div className="bg-white sticky top-0 z-20">
+      {/* --- 상단 헤더 & 진행바 (고정) --- */}
+      <div className="flex-none bg-white z-20">
         <div className="flex items-center justify-between px-4 h-14">
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={() => currentStep === 0 ? navigate('/login') : handlePrevious()}
-            className="text-gray-500 hover:text-gray-900"
+            className="text-gray-500 hover:text-gray-900 -ml-2"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-6 h-6" />
           </Button>
-          <span className="text-sm font-bold text-gray-400">
-            <span className="text-blue-600">{currentStep + 1}</span> / {totalSteps}
-          </span>
-          <div className="w-9" /> 
+          <div className="flex-1 text-center font-medium text-lg pr-8">
+            <span className="text-blue-600 font-bold">{currentStep + 1}</span>
+            <span className="text-gray-300"> / {totalSteps}</span>
+          </div>
+          <div className="w-6" /> 
         </div>
         
-        <div className="w-full h-1.5 bg-gray-100">
+        {/* 진행바 (파란색) */}
+        <div className="w-full h-1 bg-gray-100">
           <div 
-            className="h-full bg-gradient-to-r from-blue-400 to-indigo-600 transition-all duration-500 ease-out rounded-r-full"
+            className="h-full bg-blue-600 transition-all duration-300 ease-out"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
       </div>
 
-      {/* --- 메인 컨텐츠 --- */}
-      <div className="flex-1 flex flex-col items-center justify-center px-5 py-8 overflow-y-auto w-full max-w-lg mx-auto">
+      {/* --- 메인 컨텐츠 (스크롤 가능 영역) --- */}
+      <div className="flex-1 overflow-y-auto px-6 py-8">
         <div 
           className={cn(
-            "w-full transition-all duration-300 ease-out transform",
+            "w-full transition-all duration-300 ease-out transform pb-10",
             isAnimating ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
           )}
         >
-          {/* 아이콘 & 질문 텍스트 */}
-          <div className="mb-8 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-sm mb-6 border border-gray-100">
+          {/* 아이콘 & 질문 */}
+          <div className="flex flex-col items-center text-center mb-10">
+            {/* [수정] 아이콘 박스를 연회색으로 변경 */}
+            <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-6">
               {currentQuestion.icon}
             </div>
-            <h1 className="text-2xl font-bold leading-snug whitespace-pre-line mb-3 text-gray-800">
+            <h1 className="text-2xl font-bold leading-snug whitespace-pre-line mb-3 text-gray-900">
               {currentQuestion.question}
             </h1>
             <p className="text-gray-500 text-sm">
@@ -690,6 +700,7 @@ const Survey = () => {
                 <div
                   key={option.value}
                   onClick={() => handleOptionSelect(option.value)}
+                  // [수정] 기본 회색박스(border-transparent) -> 선택 시 파란색 박스/테두리
                   className={cn(
                     "relative flex items-center rounded-xl border-2 cursor-pointer transition-all duration-200 active:scale-[0.98] group",
                     // 그리드형이면 세로 배치(flex-col) & 중앙 정렬, 리스트형이면 가로 배치(flex-row)
@@ -697,8 +708,8 @@ const Survey = () => {
                       ? "flex-col text-center p-3 justify-center h-full" 
                       : "flex-row p-4",
                     isSelected 
-                      ? "border-blue-500 bg-blue-50/50 shadow-md" 
-                      : "border-gray-100 bg-white hover:border-blue-200 hover:shadow-sm"
+                      ? "bg-blue-50 border-blue-500 shadow-sm" 
+                      : "bg-gray-50 border-transparent hover:bg-gray-100"
                   )}
                 >
                   {/* 옵션 아이콘 */}
@@ -745,24 +756,21 @@ const Survey = () => {
         </div>
       </div>
 
-      {/* --- 하단 버튼 --- */}
-      <div className="p-5 bg-white border-t border-gray-100 sticky bottom-0 z-20">
-        <div className="max-w-lg mx-auto">
-          <Button 
-            onClick={handleNext}
-            // 값이 없거나, 배열인데 비어있으면 비활성화
-            disabled={!currentAnswer || (Array.isArray(currentAnswer) && currentAnswer.length === 0)}
-            className={cn(
-              "w-full h-14 text-lg font-bold rounded-xl shadow-lg transition-all duration-300",
-              (!currentAnswer || (Array.isArray(currentAnswer) && currentAnswer.length === 0))
-                ? "bg-gray-200 text-gray-400 shadow-none"
-                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white hover:shadow-blue-500/30"
-            )}
-          >
-            {currentStep === totalSteps - 1 ? '결과 확인하기' : '다음으로'}
-            {currentStep < totalSteps - 1 && <ArrowRight className="w-5 h-5 ml-2 opacity-80" />}
-          </Button>
-        </div>
+      {/* --- 하단 버튼 (화면 하단 고정) --- */}
+      <div className="flex-none p-4 border-t bg-white safe-area-bottom">
+        <Button 
+          onClick={handleNext}
+          disabled={!currentAnswer}
+          className={cn(
+            "w-full h-14 text-lg font-bold rounded-xl transition-all duration-300",
+            !currentAnswer 
+              ? "bg-gray-200 text-gray-400 hover:bg-gray-200 shadow-none"
+              : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl"
+          )}
+        >
+          {currentStep === totalSteps - 1 ? '결과 확인하기' : '다음으로'}
+          {currentStep < totalSteps - 1 && <ArrowRight className="w-5 h-5 ml-2 opacity-80" />}
+        </Button>
       </div>
     </div>
   );
