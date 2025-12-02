@@ -25,7 +25,7 @@ const Splash = () => {
             const userData = await response.json();
             // 3. 정보가 유효하면 스토어 갱신 후 메인으로
             login(token, userData); 
-            navigate('/app/wallet');
+            navigate('/app/chat', { replace: true });
             return;
           } 
         } catch (e) {

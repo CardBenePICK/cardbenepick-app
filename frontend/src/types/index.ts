@@ -127,6 +127,7 @@ export interface RadarChartData {
 }
 
 export interface NotificationContent {
+  title?: string;
   card_name?: string;
   requirement?: string | number;
   current_usage?: string | number;

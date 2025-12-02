@@ -181,6 +181,57 @@ class CardTransaction(SQLModel, table=True):
         sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     )
 
+
+# --- [수정된 부분: db insert] BenefitHistory 추가 ---
+class BenefitHistory(SQLModel, table=True):
+    """
+    카드 혜택 적용 내역 (benefit_history 테이블)
+    """
+    __tablename__ = "benefit_history"
+
+    usage_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    )
+    user_id: int = Field(sa_column=Column(BIGINT, nullable=False))
+    
+    # benefit_id는 varchar(16)
+    benefit_id: str = Field(max_length=16, nullable=False)
+    
+    # transaction_id는 varchar(64)
+    transaction_id: str = Field(max_length=64, nullable=False)
+    
+    applied_amount: int = Field(nullable=False) # 적용된 혜택 금액
+    usage_date: datetime = Field(nullable=False)
+    
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    )
+
+# --- [추가] BenefitSum ---
+class BenefitSum(SQLModel, table=True):
+    """
+    혜택 한도 관리 및 집계를 위한 요약 테이블 (benefit_sum)
+    """
+    __tablename__ = "benefit_sum"
+
+    # 복합 PK (user_id, benefit_id)
+    user_id: int = Field(sa_column=Column(BIGINT, primary_key=True, nullable=False))
+    benefit_id: str = Field(max_length=16, primary_key=True, nullable=False)
+
+    day_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    day_count: Optional[int] = Field(default=0)
+
+    week_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    week_count: Optional[int] = Field(default=0)
+
+    month_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    month_count: Optional[int] = Field(default=0)
+
+    year_amount: Optional[int] = Field(default=0, sa_column=Column(BIGINT))
+    year_count: Optional[int] = Field(default=0)
+
 # --- Notification ---
 class Notification(SQLModel, table=True):
     """
@@ -248,3 +299,25 @@ class CardBenefit(SQLModel, table=True):
     
     # MCC 코드 (업종 코드)
     mcc_code: Optional[Any] = Field(default=None, sa_column=Column(JSON))
+
+
+class PointLedger(SQLModel, table=True):
+    """포인트 변동 이력 (원장)"""
+    __tablename__ = "point_ledger"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(..., index=True)
+    amount: int = Field(..., description="양수: 적립, 음수: 사용")
+    type: str = Field(..., max_length=20, description="EARN, USE, CANCEL, EXPIRE")
+    used_benefit_id: Optional[int] = Field(default=None)
+    description: Optional[str] = Field(default=None, max_length=255)
+    created_at: datetime = Field(default_factory=lambda: datetime.now().replace(microsecond=0))
+
+class PointBalance(SQLModel, table=True):
+    """사용자별 포인트 잔액"""
+    __tablename__ = "point_balance"
+    
+    user_id: int = Field(primary_key=True)
+    total_point: int = Field(default=0)
+    earn_count: int = Field(default=0)
+    last_updated_at: datetime = Field(default_factory=lambda: datetime.now().replace(microsecond=0))

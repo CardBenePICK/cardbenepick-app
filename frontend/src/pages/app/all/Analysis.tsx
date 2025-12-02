@@ -2,34 +2,61 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 // 1. PieChart, CreditCard, BarChart2, Plus와 함께 'User' 아이콘을 가져옵니다.
-import { PieChart, CreditCard, BarChart2, Plus, User } from 'lucide-react';
+import { PieChart, CreditCard, BarChart2, Plus, User, CalendarDays, Sparkles } from 'lucide-react';
 
 // 2. '마이페이지' 항목을 배열의 맨 위에 추가합니다.
 const analysisMenuItems = [
   {
     title: "마이페이지",
-    description: "내 정보 및 로그아웃",
+    description: (
+      <>
+      내 정보 및<br /> 로그아웃
+      </>
+    ),
     icon: User,
     link: "/app/mypage", // 마이페이지 라우트
   },
   {
-    title: "소비패턴",
-    description: "카테고리별 지출 분석",
+    title: "소비 패턴",
+    description: (
+      <>
+      카테고리별<br /> 지출 분석
+      </>
+    ),
     icon: PieChart,
     link: "/app/analysis/detail", 
   },
   {
-    title: "카드별 이용실적",
-    description: "보유 카드 실적 현황",
+    title: "소비 달력", // [NEW] 소비 달력 추가
+    description: (
+      <>  
+      월별 지출<br />캘린더
+      </>
+    ),
+    icon: CalendarDays,
+    link: "/app/analysis/calendar", // 캘린더 페이지 라우트
+  },
+  {
+    title: "카드 실적",
+    description: (  
+      <>  
+      보유 카드<br />실적 현황
+      </>
+    ),
     icon: CreditCard,
     link: "/app/performance", 
   },
-  // {
-  //   title: "월별 리포트",
-  //   description: "지난 달 소비 요약",
-  //   icon: BarChart2,
-  //   link: "#",
-  // },
+  // [NEW] 카드 추천 탭 추가
+  {
+    title: "카드 추천",
+    description: (
+      <>
+      AI 맞춤형<br />카드 찾기
+      </>
+    ),
+    icon: Sparkles,
+    link: "/survey", // 설문조사 페이지로 이동
+  },
 ];
 
 const Analysis = () => {
