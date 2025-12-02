@@ -110,10 +110,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-
-# 이미지
-*.png
-*.jpg
-*.gif
-*.zip
+# 사진
+/frontend/public/images/*.png
+/frontend/public/images/*.jpg
+/frontend/public/images/*.gif
+/frontend/public/images/*.zip
