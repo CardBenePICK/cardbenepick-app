@@ -384,7 +384,7 @@ import { Button } from '@/components/ui/button';
 // Card, CardContent는 현재 안 쓰이고 있어서 지워도 되지만, 혹시 몰라 뒀습니다.
 // import { Card, CardContent } from '@/components/ui/card'; 
 import { 
-  ArrowLeft, ArrowRight, Check,
+  ArrowLeft, ArrowRight, Check, 
   CreditCard, Car, Utensils, Plane, GraduationCap, HeartPulse,
   Wallet, Bus, Coffee, Sofa, BookOpen, Smile, Briefcase, Users, Sun,
   // --- 새로 추가된 아이콘들 ---
@@ -435,7 +435,6 @@ const questions = [
       { label: "50대 이상", sub: "은퇴 준비", value: '55', icon: <Sofa className="w-5 h-5" /> },
     ]
   },
-  // 3. 생애주기
   // 3. 생애주기
   {
     id: 'lifeStage',
@@ -511,7 +510,7 @@ const questions = [
       { label: "거의 없어요", sub: "해당 없음", value: 'No', icon: <Smile className="w-5 h-5" /> },
     ]
   },
-  // 9. 의료비  // 9. 건강
+  // 9. 건강
   {
     id: 'hasHealth',
     icon: <HeartPulse className="w-8 h-8 text-rose-500" />,
