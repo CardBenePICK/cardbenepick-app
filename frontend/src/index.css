@@ -1,3 +1,6 @@
+/* 1. 프리텐다드 폰트 불러오기 (가장 상단에 위치) */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,8 +10,8 @@
 
 @layer base {
   :root {
-    /* --- 새 컬러 팔레트 적용 --- */
-    --background: 220 20% 98%; /* #F5F7FA */
+    /* --- 1. 앱 내부 배경 (기본값) -> 완전 흰색으로 변경 --- */
+    --background: 0 0% 100%; /* #FFFFFF */
     --foreground: 0 0% 11%; /* #1E1E1E */
 
     --card: 0 0% 100%; /* #FFFFFF */
@@ -47,7 +50,7 @@
     --shadow-card: 0 4px 10px rgba(0, 0, 0, 0.05);
     --shadow-elevated: 0 8px 20px rgba(0, 0, 0, 0.07);
 
-    /* 기존 사이드바 변수는 일단 유지 (추후 제거 가능) */
+    /* 기존 사이드바 변수는 유지 */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -58,8 +61,8 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
+  /* 다크 모드 설정 (유지) */
   .dark {
-    /* 다크 모드도 새 팔레트에 맞게 조정 (임의 조정) */
     --background: 222 47% 11%; /* #111827 (어두운 남색) */
     --foreground: 210 40% 98%; /* #F9FAFB (밝은 회색) */
 
@@ -93,7 +96,6 @@
     --warning: 42 100% 70%; /* #FFDD73 (밝은 노랑) */
     --info: 259 90% 70%; /* #A67FFF (밝은 보라) */
     
-    /* ... (기존 사이드바 다크 변수 유지) ... */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -111,8 +113,9 @@
   }
 
   body {
-    /* 기본 배경색과 텍스트색 적용 */
-    @apply bg-background text-foreground font-sans;
+    /* --- 2. 진짜 배경 (그림자 뒤) -> 회색으로 설정 --- */
+    /* bg-slate-100은 연한 회색입니다. */
+    @apply bg-slate-100 text-foreground font-sans;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -136,9 +139,10 @@
 }
 
 @layer components {
-  /* App-specific component styles */
+  /* --- 3. 앱 컨테이너 (스마트폰 모양) -> 흰색 설정 --- */
   .app-container {
-    @apply max-w-md mx-auto min-h-screen bg-background;
+    /* bg-white를 적용하여 앱 내부는 항상 깨끗한 흰색 유지 */
+    @apply max-w-md mx-auto min-h-screen bg-white shadow-2xl;
   }
 
   .card-gradient {
@@ -189,9 +193,7 @@
   .backface-hidden {
     backface-visibility: hidden;
   }
-}
-
-@layer components {
+  
   /* 로딩 점 스타일 */
   .loading-dot {
     @apply w-2 h-2 bg-gray-400 rounded-full; /* Tailwind 유틸리티 사용 (크기, 색상, 둥글기) */
