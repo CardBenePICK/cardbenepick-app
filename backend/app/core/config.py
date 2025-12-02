@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings(BaseSettings):
-    API_V1_STR: str = "/api/v1"
+    API_V1_STR: str = "/api"
     DATABASE_URL: str = os.getenv("DATABASE_URL")
     
     # [보안 키 설정]
