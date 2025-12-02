@@ -1,4 +1,4 @@
-# --- FastAPI ---
+﻿# --- FastAPI ---
 fastapi[all]               # FastAPI 프레임워크 (uvicorn, pydantic 등 포함)
 
 # --- DB (MySQL + SQLModel) ---
