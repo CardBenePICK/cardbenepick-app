@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 // 1. PieChart, CreditCard, BarChart2, Plus와 함께 'User' 아이콘을 가져옵니다.
-import { PieChart, CreditCard, BarChart2, Plus, User, CalendarDays, Sparkles } from 'lucide-react';
+import { PieChart, CreditCard, BarChart2, Plus, User, CalendarDays, Sparkles, Bell } from 'lucide-react';
 
 // 2. '마이페이지' 항목을 배열의 맨 위에 추가합니다.
 const analysisMenuItems = [
@@ -68,6 +68,9 @@ const Analysis = () => {
       <div className="flex items-center p-4 border-b">
         {/* 3. 페이지 제목을 '분석'에서 '전체'로 변경합니다. */}
         <h1 className="text-lg font-semibold flex-1 text-center">전체</h1>
+        <Button variant="ghost" size="icon" className="absolute right-4" onClick={() => navigate('/app/notifications')}>
+          <Bell className="w-6 h-6 text-gray-700" />
+        </Button>
       </div>
 
       {/* Content (3*n 버튼 메뉴) */}

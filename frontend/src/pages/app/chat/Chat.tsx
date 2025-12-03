@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   ArrowLeft, Send, BarChart3, CreditCard, TrendingUp, 
-  HelpCircle, ChevronDown // [수정] 아이콘 통합 Import
+  HelpCircle, ChevronDown, Bell// [수정] 아이콘 통합 Import
 } from 'lucide-react';
 import { ChatMessage, PaymentQuery } from '@/types'; // 경로 수정 (상대경로 -> alias)
 
@@ -125,7 +125,9 @@ const Chat = () => {
 
   const addMessage = (content: string, type: 'user' | 'bot', data?: any) => {
     const newMessage: ChatMessage = {
-      id: Date.now().toString(),
+      // [수정] Date.now() 뒤에 랜덤 문자열을 붙여서 중복 방지
+      // 예: "1704273849123-ax9z3k"
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, 
       type,
       content,
       timestamp: new Date(),
@@ -218,6 +220,9 @@ const Chat = () => {
     <div className="flex flex-col h-full"> 
       <div className="flex items-center p-4 border-b">
         <h1 className="text-lg font-semibold flex-1 text-center">카드 추천 챗봇</h1>
+        <Button variant="ghost" size="icon" className="absolute right-4" onClick={() => navigate('/app/notifications')}>
+          <Bell className="w-6 h-6 text-gray-700" />
+        </Button>
       </div>
 
       {/* Messages */}
