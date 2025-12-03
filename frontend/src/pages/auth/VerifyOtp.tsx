@@ -5,8 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useToast } from '@/hooks/use-toast';
-// [추가] Store 임포트
+// [변경] API 및 Store 및 Hook 임포트
+import { useVerifyOtpMutation } from '@/hooks/useAuthQueries';
 import { useUserStore } from '@/store/useUserStore';
+import { authApi } from '@/api/auth';
+import { userApi } from '@/api/user';
 
 const VerifyOtp = () => {
   const navigate = useNavigate();
@@ -16,7 +19,6 @@ const VerifyOtp = () => {
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // [추가] Store Actions
   const { login } = useUserStore();
 
   const phoneNumber = location.state?.phoneNumber;
@@ -33,55 +35,12 @@ const VerifyOtp = () => {
     }
   }, [phoneNumber, navigate, toast]);
 
+  // 2. React Query 훅 사용
+  // mutate: 실행 함수, isPending: 로딩 상태
+  const { mutate: verifyOtp, isPending } = useVerifyOtpMutation();
+  
   const handleOtpComplete = async (completedOtp: string) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('http://localhost:8000/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone_number: phoneNumber, otp: completedOtp })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'OTP 검증에 실패했습니다.' }));
-        throw new Error(errorData.detail || 'OTP가 올바르지 않습니다.');
-      }
-
-      const data = await response.json();
-      
-      if (data.is_new_user) {
-        // 신규 유저 -> 회원가입 페이지로 이동 (임시 토큰 전달)
-        localStorage.setItem('token', data.token); 
-        navigate('/register', { state: { telecom: telecom } });
-      } else {
-        // [수정] 기존 유저 -> 내 정보 조회 후 로그인 처리
-        const token = data.token;
-
-        // 내 정보 가져오기
-        const userResponse = await fetch('http://localhost:8000/api/users/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (userResponse.ok) {
-            const userData = await userResponse.json();
-            
-            // Store 업데이트 (localStorage 저장 포함)
-            login(token, userData);
-            
-            toast({ title: "로그인 성공", description: "환영합니다!" });
-            navigate('/app/chat', { replace: true });
-        } else {
-            throw new Error("유저 정보를 불러오는데 실패했습니다.");
-        }
-      }
-
-    } catch (error: any) {
-      console.error(error);
-      toast({ title: "인증 실패", description: error.message || "서버 오류", variant: "destructive" });
-      setOtp('');
-    } finally {
-      setIsLoading(false);
-    }
+    verifyOtp({ phoneNumber, otp: completedOtp, telecom });
   };
 
   return (
@@ -145,3 +104,52 @@ const VerifyOtp = () => {
 };
 
 export default VerifyOtp;
+  // setIsLoading(true);
+  //   try {
+  //     const response = await fetch('http://localhost:8000/api/auth/verify-otp', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ phone_number: phoneNumber, otp: completedOtp })
+  //     });
+
+  //     if (!response.ok) {
+  //       const errorData = await response.json().catch(() => ({ detail: 'OTP 검증에 실패했습니다.' }));
+  //       throw new Error(errorData.detail || 'OTP가 올바르지 않습니다.');
+  //     }
+
+  //     const data = await response.json();
+      
+  //     if (data.is_new_user) {
+  //       // 신규 유저 -> 회원가입 페이지로 이동 (임시 토큰 전달)
+  //       localStorage.setItem('token', data.token); 
+  //       navigate('/register', { state: { telecom: telecom } });
+  //     } else {
+  //       // [수정] 기존 유저 -> 내 정보 조회 후 로그인 처리
+  //       const token = data.token;
+
+  //       // 내 정보 가져오기
+  //       const userResponse = await fetch('http://localhost:8000/api/users/me', {
+  //         headers: { 'Authorization': `Bearer ${token}` }
+  //       });
+
+  //       if (userResponse.ok) {
+  //           const userData = await userResponse.json();
+            
+  //           // Store 업데이트 (localStorage 저장 포함)
+  //           login(token, userData);
+            
+  //           toast({ title: "로그인 성공", description: "환영합니다!" });
+  //           navigate('/app/chat', { replace: true });
+  //       } else {
+  //           throw new Error("유저 정보를 불러오는데 실패했습니다.");
+  //       }
+  //     }
+
+  //   } catch (error: any) {
+  //     console.error(error);
+  //     toast({ title: "인증 실패", description: error.message || "서버 오류", variant: "destructive" });
+  //     setOtp('');
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };

@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+// API 모듈 임포트
+import { authApi } from '@/api/auth';
 
 // [추가] 통신사 목록
 const telecomOptions = [
@@ -57,19 +59,20 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // (참고: 현재 백엔드 /send-otp API는 telecom을 받지 않지만,
-      // 프론트엔드 로직상 필요하므로 다음 페이지로만 넘깁니다.)
-      const response = await fetch('http://localhost:8000/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone_number: phone }),
-      });
+      // // (참고: 현재 백엔드 /send-otp API는 telecom을 받지 않지만,
+      // // 프론트엔드 로직상 필요하므로 다음 페이지로만 넘깁니다.)
+      // const response = await f e t c h('http://localhost:8000/api/auth/send-otp', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ phone_number: phone }),
+      // });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'OTP 발송에 실패했습니다.' }));
-        throw new Error(errorData.detail || 'OTP 발송에 실패했습니다.');
-      }
+      // if (!response.ok) {
+      //   const errorData = await response.json().catch(() => ({ detail: 'OTP 발송에 실패했습니다.' }));
+      //   throw new Error(errorData.detail || 'OTP 발송에 실패했습니다.');
+      // }
 
+      await authApi.sendOtp(phone);
       toast({
         title: "인증번호 발송",
         description: `${phone}으로 인증번호가 발송되었습니다. (백엔드 콘솔 확인)`,
