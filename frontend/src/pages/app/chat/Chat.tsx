@@ -2,116 +2,74 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Send, BarChart3, CreditCard, TrendingUp } from 'lucide-react';
-import { ChatMessage, PaymentQuery } from '../../../types';
-import { getCardRecommendations, inferCategoryFromMerchant } from '../../../utils/cardRecommendation';
-import { sampleCards } from '../../../data/mockData';
-import { HelpCircle, ChevronDown } from 'lucide-react'; // 상단 import에 추가 필요!
+import { 
+  ArrowLeft, Send, BarChart3, CreditCard, TrendingUp, 
+  HelpCircle, ChevronDown // [수정] 아이콘 통합 Import
+} from 'lucide-react';
+import { ChatMessage, PaymentQuery } from '@/types'; // 경로 수정 (상대경로 -> alias)
 
-// Chat.tsx 상단
+// [변경] Hook Import
+import { useChatMutation } from '@/hooks/useChat';
 
 // json 형태 파악 함수
 export const isValidJson = (value: string): boolean => {
   if (typeof value !== "string") return false;
   try {
     const parsed = JSON.parse(value);
-    // 단순히 파싱만 성공하면 JSON으로 볼 것인지, 객체/배열 형태여야 하는지 체크
     return typeof parsed === "object" && parsed !== null;
   } catch (e) {
     return false;
   }
 };
 
-// --- [임시 1] 고정된 카드 데이터 (백엔드 대신 여기서 내용 수정) ---
-const FIXED_CARD_DATA = [
-  {
-    id: 'samsung_taptap',
-    name: '삼성카드 taptap O',
-    benefit: '1,250원', // 혜택 금액
-    desc: '스타벅스 50% 할인', // 짧은 요약
-    detail: '삼성카드 taptap O는 월 커피 할인 한도 10,000원 중 잔여 한도가 9,178원 남아있어 50% 할인이 전액 적용됩니다. (전월 실적 80만원 충족)', // 물음표 눌렀을 때 나올 긴 설명
-    color: 'from-pink-500 to-orange-400' // 카드 색상 (그라데이션)
-  },
-  {
-    id: 'shinhan_deep',
-    name: '신한카드 Deep Dream',
-    benefit: '375원',
-    desc: '전가맹점 0.7% 적립',
-    detail: '특별한 할인 조건이 없는 가맹점이므로, Deep Dream의 기본 적립률 0.7%가 적용되어 375 포인트가 적립됩니다.',
-    color: 'from-blue-700 to-blue-500'
-  }
-];
-
-// --- [임시 2] 카드 UI 컴포넌트 ---
-// import { HelpCircle, ChevronDown } from 'lucide-react'; // 상단 import에 추가 필요!
-
+// --- 카드 UI 컴포넌트 ---
 const RecommendationCardItem = ({ card, navigate, isBest }: any) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleCardClick = () => {
-    // 카드를 누르면 결제 화면으로 이동하면서 카드 정보 넘기기
-    // [수정된 부분] payment 정보(혜택 포함)를 함께 전달
     navigate('/app/wallet', { 
         state: { 
             recommendedCardId: card.id,
             payment: {
-                merchant: card.merchant,      // Chat loop에서 넣어준 값
-                amount: card.price,           // Chat loop에서 넣어준 값
-                benefit_id: card.benefit_id,  // [핵심] 혜택 ID 전달 card.benefit_id
-                discount_amount: card.benefit // [핵심] 혜택 금액 전달
+                merchant: card.merchant,
+                amount: card.price,
+                benefit_id: card.benefit_id,
+                discount_amount: card.benefit
             }
         } 
     });
   };
 
   const handleHelpClick = (e: any) => {
-    e.stopPropagation(); // 부모의 클릭(결제 이동) 방지
-    setIsOpen(!isOpen); // 설명창 열기/닫기 토글
+    e.stopPropagation();
+    setIsOpen(!isOpen);
   };
 
   return (
     <div className="w-full max-w-sm mb-2">
-      {/* 1. 카드 메인 영역 */}
-
       <div 
         onClick={handleCardClick}
         className={`
           relative flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-200
           ${isBest 
-            // 🥇 1등 스타일 (Hover 추가)
-            // 기본: 파란 테두리 + 연한 배경
-            // Hover: 배경이 조금 더 진해짐(blue-100) + 그림자 더 커짐(shadow-lg) + 살짝 위로 떠오름(-translate-y-1)
             ? "bg-blue-50 border-2 border-blue-500 shadow-md z-10 hover:bg-blue-100 hover:shadow-lg hover:-translate-y-1"   
-            
-            // 🥈 일반 스타일 (Hover 추가)
-            // 기본: 흰색 배경
-            // Hover: 회색 배경(gray-50) + 그림자 커짐(shadow-md) + 살짝 위로 떠오름(-translate-y-0.5)
             : "bg-white border border-gray-200 shadow-sm hover:shadow-md hover:bg-gray-50 hover:-translate-y-0.5" 
           }
         `}
       >
-      {/* 🥇 1등일 경우 왼쪽 상단에 뱃지 추가 */}
-      {isBest && (
-        <span className="absolute -top-3 left-4 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
-          BEST 추천
-        </span>
-      )}
+        {isBest && (
+          <span className="absolute -top-3 left-4 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
+            BEST 추천
+          </span>
+        )}
 
-      {/* <div 
-        onClick={handleCardClick}
-        className="relative flex items-center justify-between p-4 bg-white border rounded-xl shadow-sm hover:shadow-md cursor-pointer transition-all"
-      > */}
         <div className="flex items-center gap-3">
-          {/* 카드 이미지 (네모 박스) */}
-          {/* <div className={`w-10 h-6 rounded bg-gradient-to-r ${card.color} shadow-sm`}></div> */}
           <img 
             src={`/images/${card.id}card.png`}
             alt={card.name} 
             className="w-15 h-10 rounded shadow-sm object-contain rotate-90 mr-2" 
-            // className="w-24 h-16 object-contain rotate-90"
+            onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }} // 이미지 에러 처리 추가
           />
-          {/* 텍스트 정보 */}
           <div className="text-left">
             <h3 className="text-sm font-bold text-gray-800">{card.name}</h3>
             <p className="text-xs text-blue-600 font-medium">
@@ -120,7 +78,6 @@ const RecommendationCardItem = ({ card, navigate, isBest }: any) => {
           </div>
         </div>
 
-        {/* 물음표 버튼 */}
         <button 
           onClick={handleHelpClick}
           className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
@@ -129,7 +86,6 @@ const RecommendationCardItem = ({ card, navigate, isBest }: any) => {
         </button>
       </div>
 
-      {/* 2. 상세 설명 영역 (isOpen일 때만 보임) */}
       {isOpen && (
         <div className="mt-1 mx-1 p-3 bg-gray-50 text-xs text-gray-600 rounded-lg border border-gray-100 animate-in slide-in-from-top-1">
           <p className="font-bold mb-1">💡 혜택 산출 근거</p>
@@ -151,14 +107,12 @@ const Chat = () => {
     }
   ]);
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // 로딩 상태 추가
-
-  // --- [수정됨] ---
-  const [isWaitingForMerchant, setIsWaitingForMerchant] = useState(false); // 가맹점 입력 대기 상태
-  // --- [수정 완료] ---
   
+  // [변경] React Query Mutation 사용
+  const { mutateAsync: sendMessage, isPending: isLoading } = useChatMutation();
+
+  const [isWaitingForMerchant, setIsWaitingForMerchant] = useState(false);
   const [isWaitingForAmount, setIsWaitingForAmount] = useState(false);
-  const [currentQuery, setCurrentQuery] = useState<Partial<PaymentQuery>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -180,164 +134,84 @@ const Chat = () => {
     setMessages(prev => [...prev, newMessage]);
   };
 
-  // --- [수정됨] ---
-  // Chat.tsx 내부 handleSendMessage 수정
-
-const handleSendMessage = async () => {
+  const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
     const userMessage = inputValue;
     addMessage(userMessage, 'user');
     setInputValue('');
-    setIsLoading(true); // 로딩 시작 (... 나옴)
-
-
-    // 1. 로컬 스토리지에서 토큰 가져오기
-    const token = localStorage.getItem("access_token");
-    try{
-      // 1. 로컬 스토리지에서 토큰 가져오기
-      const token = localStorage.getItem("token");
-
-      // 2. 서버에 요청 (헤더에 토큰 추가)
-      const response = await fetch('http://localhost:8090/chat_react', {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/x-www-form-urlencoded',
-            // [핵심] 토큰이 있을 때만 Authorization 헤더를 추가합니다.
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: new URLSearchParams({ 'query': userMessage })
-      });
     
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-      console.log("chat-response", response)
-      // 서버 응답 처리 (JSON으로 온다고 가정)
-      const data = await response.json();
+    try {
+      // [변경] API 호출 (fetch 제거 -> sendMessage 훅 사용)
+      const data = await sendMessage(userMessage);
       
-      // 서버 응답 구조에 맞춰 메시지 추가
-      // 예: { "response": "추천 카드는...", "cards": [...] } 라고 가정
+      // 서버 응답 처리 로직 (기존 유지)
       if (isValidJson(data.response)){
         const recommend_data = JSON.parse(data.response);
-        if ("recommended_card" in recommend_data){ // 혜택 계산을 해서 나왔을 경우         
-          // [수정 전] 단순히 배열에 push 하던 방식
-          // const recommend_cards_data = [] 
-
-          // [수정 후] 중복 제거를 위해 Map 사용
+        if ("recommended_card" in recommend_data && Array.isArray(recommend_data.cards)){         
           const uniqueCardsMap = new Map();
-
-          let merchant = ""
-          let price_val = ""
+          let merchant = "";
+          let price_val = "";
 
           for (const card_r of recommend_data.cards){
             merchant = card_r.merchant_name;
             price_val = card_r.price;
 
-            const newCard =
-            {
+            const newCard = {
               id: card_r.card_id,
               name: card_r.card,
               benefit: card_r.bene_val,
-              // [수정된 부분] merchant, price, benefit_id 추가 저장 (props 전달용)
               merchant: merchant,
               price: price_val,
               benefit_id: card_r.benefit_id, 
-
               desc: card_r.final_val +'원 결제 예정',
               detail: card_r.reason,
               color: 'from-blue-700 to-blue-500'
             };
 
-            // [추가된 로직] ID 중복 체크 및 혜택 비교
             if (!uniqueCardsMap.has(newCard.id)) {
-                // 1. 맵에 해당 카드 ID가 없으면 추가
                 uniqueCardsMap.set(newCard.id, newCard);
             } else {
-                // 2. 이미 존재하는 경우, 기존 저장된 카드와 현재 카드의 혜택 비교
                 const existingCard = uniqueCardsMap.get(newCard.id);
                 if (newCard.benefit > existingCard.benefit) {
-                    // 현재 카드의 혜택이 더 크면 교체
                     uniqueCardsMap.set(newCard.id, newCard);
                 }
             }
-            // recommend_cards_data.push(newCard) // [삭제] 기존 push 방식 제거
           }
 
-          // [추가] Map의 값들만 추출하여 배열로 변환
           const recommend_cards_data = Array.from(uniqueCardsMap.values());
-
-          // 혜택이 가장 높은 카드가 가장 위로 올라오도록 정렬
-          recommend_cards_data.sort((a, b) => b.benefit - a.benefit);
+          recommend_cards_data.sort((a: any, b: any) => b.benefit - a.benefit);
 
           addMessage(merchant + "에서 " + price_val + "원 결제 시, 추천 카드를 찾았습니다!", 'bot');
           addMessage("", 'bot', { recommendations: recommend_cards_data });
-        
-          // const recommend_cards_data = []
-          // let merchant = ""
-          // let price_val = ""
-
-          // for (const card_r of recommend_data.cards){
-          //   merchant = card_r.merchant_name;
-          //   price_val = card_r.price;
-
-          //   const newCard =
-          //   {
-          //     id: card_r.card_id,
-          //     name: card_r.card,
-          //     benefit: card_r.bene_val,
-          //     // [수정된 부분] merchant, price, benefit_id 추가 저장 (props 전달용)
-          //     merchant: merchant,
-          //     price: price_val,
-          //     benefit_id: card_r.benefit_id, // [핵심] 챗봇 응답에 benefit_id가 있다고 가정 card_r.benefit_id
-
-          //     desc: card_r.final_val +'원 결제 예정',
-          //     detail: card_r.reason,
-          //     color: 'from-blue-700 to-blue-500'
-          //   };
-          //   recommend_cards_data.push(newCard)
-          // }
-
-          // // 혜택이 가장 높은 카드가 가장 위로 올라오도록.
-          // recommend_cards_data.sort((a, b) => b.benefit - a.benefit);
-
-          // addMessage(merchant + "에서 " + price_val + "원 결제 시, 추천 카드를 찾았습니다!", 'bot');
-          // addMessage("", 'bot', { recommendations: recommend_cards_data });
+        } else {
+           // JSON이지만 카드 추천 데이터가 아닌 경우 (일반 대화 등)
+           addMessage(data.response, 'bot');
         }
-        // addMessage(data.response + "\n\n 이렇습니다." || "답변을 받았습니다.", 'bot', { recommendations: data.cards });  
-      }else{
-        // json 형태로 받은 것이 아닌 답변 그대로 챗봇으로 표현하면 된다.
-        addMessage(data.response || "답변을 받았습니다.", 'bot', { recommendations: data.cards }); 
+      } else {
+        // 일반 텍스트 응답
+        addMessage(data.response || "답변을 받았습니다.", 'bot'); 
       }
-         
 
     } catch (error) {
       console.error('Error:', error);
-      addMessage("오류가 발생했습니다.", 'bot');
-    } finally {
-      setIsLoading(false); // 로딩 끝
+      addMessage("죄송합니다. 오류가 발생하여 답변을 가져오지 못했습니다.", 'bot');
     }
   };
 
-  // --- [수정됨] ---
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'spending':
-        navigate('/app/analysis/detail'); // 경로 수정
+        navigate('/app/analysis/detail');
         break;
       case 'performance':
-        navigate('/app/performance'); // 경로 수정
+        navigate('/app/performance');
         break;
       case 'recommend':
         addMessage('어떤 가맹점에서 결제하실 예정인가요?', 'bot');
-        setIsWaitingForMerchant(true); // 가맹점 입력 대기 상태로 변경
+        setIsWaitingForMerchant(true);
         break;
     }
-  };
-  // --- [수정 완료] ---
-
-  const handleCardRecommendationClick = (cardId: string) => {
-    navigate('/app/wallet', { state: { recommendedCardId: cardId } });
   };
 
   return (
@@ -348,15 +222,12 @@ const handleSendMessage = async () => {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* 임시 4 */}
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={message.type === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}>
               
-              {/* 1. 텍스트 메시지 내용 */}
               <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               
-              {/* 2. 추천 카드 데이터가 있으면 -> 우리가 만든 새 컴포넌트로 보여주기! */}
               {message.data?.recommendations && (
                 <div className="mt-3 space-y-2 w-full min-w-[280px]">
                   {message.data.recommendations.map((card: any, index: number) => (
@@ -364,7 +235,7 @@ const handleSendMessage = async () => {
                       key={index} 
                       card={card} 
                       navigate={navigate} 
-                      isBest={index === 0} // 처음 부분을 체크하게 하려고.
+                      isBest={index === 0}
                     />
                   ))}
                 </div>
@@ -374,16 +245,16 @@ const handleSendMessage = async () => {
           </div>
         ))}
         
+        {/* [변경] isLoading (isPending) 상태일 때 로딩 표시 */}
         {isLoading && (
           <div className="flex justify-start animate-in fade-in duration-300">
-            {/* 기존 봇 말풍선 스타일(chat-bubble-bot) 적용 */}
             <div className="chat-bubble-bot flex items-center space-x-1 min-h-[40px]">
               <div className="loading-dot"></div>
               <div className="loading-dot"></div>
               <div className="loading-dot"></div>
             </div>
           </div>
-    )}
+        )}
 
         {messages.length === 1 && (
           <div className="space-y-3">
@@ -437,19 +308,17 @@ const handleSendMessage = async () => {
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            // --- [수정됨] ---
             placeholder={
               isWaitingForAmount ? "금액을 입력하세요 (예: 15000)" :
               isWaitingForMerchant ? "가맹점명을 입력하세요" :
-              "" // 1. "카드 추천받기"를 누르기 전에는 placeholder 없음
+              ""
             }
-            // --- [수정 완료] ---
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
             className="flex-1"
           />
           <Button 
             onClick={handleSendMessage}
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || isLoading} // 로딩 중 버튼 비활성화
             size="icon"
             className="btn-gradient"
           >

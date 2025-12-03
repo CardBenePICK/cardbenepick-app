@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, ChevronLeft, ChevronRight, 
-  ShoppingBag, Coffee, Bus, Fuel, Utensils, ShoppingCart, Smartphone, Ticket 
+  ShoppingBag, Coffee, Bus, Fuel, Utensils, ShoppingCart, Smartphone, Ticket, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -11,8 +11,11 @@ import {
   eachDayOfInterval, isSameMonth, isToday 
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { fetchWithAuth } from '@/lib/api';
 import { cn } from '@/lib/utils';
+
+// [변경] Hook 및 타입 임포트
+import { useMonthlyTransactions } from '@/hooks/useAnalysis';
+import { Transaction } from '@/api/analysis';
 
 // --- 아이콘 매핑 ---
 const getCategoryIcon = (merchantName: string) => {
@@ -46,57 +49,41 @@ type TransactionResponse = {
   transaction_date: string;
 };
 
-type Transaction = {
-  id: string;
-  amount: number;
-  merchant: string;
-  card_company: string;
-  date: string;
-  time: string;
-};
 
 const SpendingCalendar = () => {
   const navigate = useNavigate();
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list'); // 기본을 리스트로
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
-  // 1. 데이터 로드
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth() + 1;
-        
-        const res = await fetchWithAuth(`http://localhost:8000/api/analysis/calendar?year=${year}&month=${month}`);
-        
-        if (res.ok) {
-          const data: TransactionResponse[] = await res.json();
-          const formattedData: Transaction[] = data.map((tx) => {
-            const dateObj = new Date(tx.transaction_date);
-            return {
-              id: tx.id.toString(),
-              amount: tx.amount_krw,
-              merchant: tx.merchant_name,
-              card_company: tx.card_issuer_name || '카드',
-              date: tx.transaction_date.split('T')[0],
-              time: dateObj.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
-            };
-          });
-          setTransactions(formattedData);
-        }
-      } catch (error) {
-        console.error("Failed to load transactions", error);
-      }
-    };
-    fetchTransactions();
-  }, [currentMonth]);
+  // [변경] React Query Hook 사용
+  // useMonthlyTransactions는 이미 analysisApi.getMonthlyCalendar를 호출하도록 구현되어 있음
+  const { 
+    data: rawTransactions = [], 
+    isLoading 
+  } = useMonthlyTransactions(currentMonth.getFullYear(), currentMonth.getMonth() + 1);
 
-  const totalExpense = transactions.reduce((acc, curr) => acc + curr.amount, 0);
+  // [변경] 데이터 포맷팅 (useMemo로 최적화)
+  // API 응답(Transaction[])을 UI용 포맷으로 변환
+  const transactions = useMemo(() => {
+    return rawTransactions.map((tx: Transaction) => {
+      const dateObj = new Date(tx.transaction_date);
+      return {
+        id: tx.id.toString(),
+        amount: tx.amount_krw,
+        merchant: tx.merchant_name,
+        // card_company 정보가 API 응답에 없다면 기본값 처리 (필요시 백엔드 스키마 수정)
+        card_company: '카드', 
+        date: tx.transaction_date.split('T')[0],
+        time: dateObj.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      };
+    });
+  }, [rawTransactions]);
+
+  const totalExpense = useMemo(() => transactions.reduce((acc, curr) => acc + curr.amount, 0), [transactions]);
   
   const groupedTransactions = useMemo(() => {
-    const grouped: Record<string, Transaction[]> = {};
+    const grouped: Record<string, typeof transactions> = {};
     const sorted = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     sorted.forEach(tx => {
       if (!grouped[tx.date]) grouped[tx.date] = [];
@@ -141,6 +128,17 @@ const SpendingCalendar = () => {
     });
     return weeks;
   }, [currentMonth]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-white">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-gray-500 text-sm">소비 내역을 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-white w-full"> 
@@ -190,7 +188,7 @@ const SpendingCalendar = () => {
                 
                 return (
                   <div key={dateStr} className="mb-2">
-                    {/* 날짜 헤더 (배경 흰색 + 하단 구분선 제거하여 깔끔하게) */}
+                    {/* 날짜 헤더 */}
                     <div className="flex justify-between items-center px-6 py-4 bg-gray-50/50 border-t border-b border-gray-100">
                       <span className="text-sm font-semibold text-gray-600">
                         {getDate(dateObj)}일 {getDayKo(dateStr)}요일
@@ -198,12 +196,11 @@ const SpendingCalendar = () => {
                       <span className="text-sm font-bold text-gray-900">-{daySum.toLocaleString()}원</span>
                     </div>
 
-                    {/* 내역 리스트 (구분선 추가) */}
+                    {/* 내역 리스트 */}
                     <div className="px-6">
                       {txs.map((tx) => (
                         <div 
                           key={tx.id} 
-                          // [수정] 박스 스타일 제거 -> 하단 구분선(border-b) 추가
                           className="flex items-center justify-between py-4 border-b border-gray-100 last:border-none"
                         >
                           <div className="flex items-center gap-4">
@@ -353,7 +350,7 @@ const SpendingCalendar = () => {
         )}
       </div>
 
-      {/* --- 하단 플로팅 탭 (버튼 위치 및 디자인 유지) --- */}
+      {/* --- 하단 플로팅 탭 --- */}
       <div className="fixed bottom-20 left-0 right-0 flex justify-center z-30 pointer-events-none">
         <div className="bg-slate-800 text-white rounded-full p-1.5 flex shadow-2xl items-center pointer-events-auto transform transition-transform hover:scale-105">
           <button

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Calendar, Clock, TrendingUp, CreditCard, ShoppingBag, Loader2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { fetchWithAuth } from '@/lib/api';
+
 
 // [변경] Hook 임포트
 import { useMonthlyTransactions } from '@/hooks/useAnalysis';
