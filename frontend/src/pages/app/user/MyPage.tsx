@@ -15,34 +15,39 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-// [추가] Store 임포트
+
+// [변경] Store 및 Hook 임포트
 import { useUserStore } from '@/store/useUserStore';
 import { useCardStore, Asset } from '@/store/useCardStore';
+import { useUser } from '@/hooks/useUser'; // [변경] useWithdrawMutation -> useUser
 
 const MyPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // 1. 전역 상태(Store) 가져오기
-  const { user, logout: logoutUser } = useUserStore();
+  // 1. 전역 상태(Store) 및 훅 사용
+  // useUser 훅에서 user 정보와 withdraw 함수를 한 번에 가져옵니다.
+  const { user, withdraw } = useUser(); 
+  const { logout: logoutUser } = useUserStore(); // 로그아웃은 Store 액션 직접 사용
+  
+  // useCardStore는 Zustand로 관리되므로 그대로 사용
   const { assets, fetchAssets, removeAsset, clearAssets } = useCardStore();
 
-  // 2. 컴포넌트 마운트 시 최신 자산 목록 불러오기
+  // 3. 컴포넌트 마운트 시 최신 자산 목록 불러오기
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
 
-  // 3. 연동된 기관(카드사) 목록 추출 (중복 제거)
+  // 4. 연동된 기관(카드사) 목록 추출 (중복 제거)
   const linkedInstitutions = Array.from(new Set(assets.map(a => a.institution_name)));
 
   // --- 핸들러 함수들 ---
 
-  // 휴대폰 번호 포맷팅 함수 (01012341234 -> 010-1234-1234)
-  const formatPhoneNumber = (phoneNumber) => {
+  // 휴대폰 번호 포맷팅 함수
+  const formatPhoneNumber = (phoneNumber?: string) => {
     if (!phoneNumber) return '';
-    // 숫자만 남기고, 3자리-3~4자리-4자리 패턴으로 하이픈 추가
     return phoneNumber
-      .replace(/[^0-9]/g, '') // 숫자가 아닌 문자 제거 (안전장치)
+      .replace(/[^0-9]/g, '')
       .replace(/^(\d{2,3})(\d{3,4})(\d{4})$/, '$1-$2-$3');
   };
 
@@ -53,26 +58,9 @@ const MyPage = () => {
     navigate('/login');
   };
 
-  const handleWithdraw = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      const response = await fetch('http://localhost:8000/api/users/me', {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) throw new Error('회원 탈퇴 처리에 실패했습니다.');
-
-      logoutUser();
-      clearAssets();
-      toast({ title: "회원 탈퇴 완료", description: "모든 정보가 삭제되었습니다." });
-      navigate('/');
-    } catch (error) {
-      console.error(error);
-      toast({ title: "오류", description: "탈퇴 중 문제가 발생했습니다.", variant: "destructive" });
-    }
+  const handleWithdraw = () => {
+    // 훅을 통해 탈퇴 요청 실행 (API 호출 -> 성공 시 로그아웃 및 이동)
+    withdraw();
   };
 
   const handleDeleteAsset = async (assetId: number, assetName: string) => {
@@ -90,7 +78,7 @@ const MyPage = () => {
       <div className="flex items-center p-4 border-b">
         <Button 
           variant="ghost" 
-          size="icon"
+          size="icon" 
           onClick={() => navigate('/app/analysis')}
           className="mr-3"
         >
@@ -175,7 +163,6 @@ const MyPage = () => {
               <p className="text-sm text-muted-foreground text-center py-4">등록된 카드가 없습니다.</p>
             )}
             
-            {/* (추후 구현 예정인 직접 등록 버튼) */}
             <Button variant="outline" className="w-full mt-4" onClick={() => navigate('/app/wallet/add')}>
               카드 직접 등록하기
             </Button>
