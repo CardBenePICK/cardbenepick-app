@@ -1,10 +1,10 @@
 # DB 엔진과 세션 주입 함수
 from sqlmodel import create_engine, Session, SQLModel
-from app.core.config import DATABASE_URL
+from app.core.config import settings
 
 # DB 엔진 생성 (앱 생명주기 동안 한번만)
 # echo=True는 개발 중 쿼리 로그 확인용 (배포 시 False)
-engine = create_engine(DATABASE_URL, echo=True) 
+engine = create_engine(settings.DATABASE_URL, echo=True) 
 
 def init_db():
     # SQLModel.metadata.create_all()은
