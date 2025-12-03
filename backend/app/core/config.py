@@ -16,7 +16,9 @@ class Settings(BaseSettings):
     # [DB 설정]
     # 💡 주의: os.getenv를 사용하지 않고 바로 타입만 지정해야 Pydantic이 env에서 값을 찾습니다.
     DATABASE_URL: str
-    
+    AGENT_BASE_URL: str = os.getenv("AGENT_BASE_URL", "http://localhost:8090")
+    ML_BASE_URL: str = os.getenv("AGENT_BASE_URL", "http://localhost:9000")
+
     # [보안 설정]
     SECRET_KEY: str = os.getenv("SECRET_KEY", "temporary-secret-key-please-change")
     ALGORITHM: str = "HS256"
