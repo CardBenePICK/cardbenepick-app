@@ -4,6 +4,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { authApi } from '@/api/auth';
 import { userApi } from '@/api/user';
 import { useToast } from '@/hooks/use-toast';
+import { format } from "date-fns";
 
 // OTP 검증 로직을 담당하는 훅
 export const useVerifyOtpMutation = () => {
@@ -48,6 +49,60 @@ export const useVerifyOtpMutation = () => {
     onError: (error: any) => {
       const message = error.response?.data?.detail || error.message || "인증에 실패했습니다.";
       toast({ title: "인증 실패", description: message, variant: "destructive" });
+    }
+  });
+};
+
+
+// [신규] 회원가입 로직을 담당하는 훅
+export const useRegisterMutation = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { login } = useUserStore();
+
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      telecom: string;
+      birthDate: Date;
+      gender: string;
+      agreedTerms: boolean;
+      agreedPrivacy: boolean;
+    }) => {
+      // 1. 회원가입 요청
+      const response = await authApi.register({
+        name: data.name,
+        telecom: data.telecom,
+        birth_date: format(data.birthDate, "yyyy-MM-dd"),
+        gender: data.gender,
+        agreed_terms: data.agreedTerms,
+        agreed_privacy: data.agreedPrivacy,
+      });
+
+      // 2. 새 토큰 저장 (임시 토큰 -> 정식 토큰 교체)
+      const newAccessToken = response.access_token;
+      if (newAccessToken) {
+        localStorage.setItem('token', newAccessToken);
+      }
+
+      // 3. 내 정보 조회 (새 토큰 사용)
+      const userData = await userApi.getMe();
+      
+      return { token: newAccessToken, user: userData };
+    },
+
+    onSuccess: (data) => {
+      // 4. 스토어 업데이트 및 이동
+      login(data.token, data.user);
+      
+      toast({ title: "회원가입 성공", description: "CardBenePICK에 오신 것을 환영합니다!" });
+      navigate('/link-mydata');
+    },
+
+    onError: (error: any) => {
+      console.error(error);
+      const message = error.response?.data?.detail || error.message || "회원가입에 실패했습니다.";
+      toast({ title: "오류", description: message, variant: "destructive" });
     }
   });
 };

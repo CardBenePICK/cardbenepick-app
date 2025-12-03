@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils'; 
 
 const mockCardCompanies = [
+  { id: 'woori', name: '우리카드' },
   { id: 'samsung', name: '삼성카드' },
   { id: 'hyundai', name: '현대카드' },
   { id: 'hana', name: '하나카드' },
@@ -16,7 +17,6 @@ const mockCardCompanies = [
   { id: 'sinhan', name: '신한카드' },
   { id: 'kb', name: 'KB국민카드' },
   { id: 'nh', name: 'NH농협카드' },
-  { id: 'woori', name: '우리카드' },
   { id: 'kakao', name: '카카오뱅크' },
   { id: 'bc', name: 'BC 바로카드' },
   { id: 'toss', name: '토스뱅크' },
