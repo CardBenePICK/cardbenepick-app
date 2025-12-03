@@ -2,26 +2,16 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Wallet, Calendar, Clock, TrendingUp, CreditCard, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, TrendingUp, CreditCard, ShoppingBag, Loader2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { fetchWithAuth } from '@/lib/api';
 
+// [변경] Hook 임포트
+import { useMonthlyTransactions } from '@/hooks/useAnalysis';
+import { useAllCards } from '@/hooks/useMyCards';
+import { Transaction } from '@/api/analysis'; // 타입 임포트
+
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
-
-type Transaction = {
-  id: number;
-  amount_krw: number;
-  merchant_name: string;
-  category?: string;
-  card_id: number;
-  transaction_date: string;
-};
-
-type CardMaster = {
-  card_id: number;
-  card_name: string;
-  card_img_url?: string;
-};
 
 // 카테고리 분류 헬퍼 함수
 const getCategory = (tx: Transaction) => {
@@ -32,46 +22,34 @@ const getCategory = (tx: Transaction) => {
   if (name.includes('편의점') || name.includes('마트') || name.includes('GS25') || name.includes('CU')) return '쇼핑/마트';
   if (name.includes('식당') || name.includes('음식') || name.includes('버거')) return '식비';
   if (name.includes('주유') || name.includes('교통') || name.includes('택시')) return '교통/주유';
+  if (name.includes('학원')) return '교육';
   return '기타 소비';
 };
 
 const SpendingDetail = () => {
   const navigate = useNavigate();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [cardList, setCardList] = useState<CardMaster[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // 날짜 상태 관리 (현재 날짜 기준)
+  const [currentDate] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
 
-  // 1. 데이터 가져오기
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth() + 1;
-        
-        const txRes = await fetchWithAuth(`http://localhost:8000/api/analysis/calendar?year=${year}&month=${month}`);
-        // [주의] 실제 카드 목록 API 주소 확인 필요
-        const cardRes = await fetchWithAuth(`http://localhost:8000/api/cards`); 
+  // [변경] React Query로 데이터 페칭 (병렬 처리)
+  const { 
+    data: transactions = [], 
+    isLoading: isTxLoading 
+  } = useMonthlyTransactions(currentDate.year, currentDate.month);
 
-        if (txRes.ok) {
-          const txData = await txRes.json();
-          setTransactions(txData);
-          
-          if (cardRes.ok) {
-            const cardData = await cardRes.json();
-            setCardList(cardData);
-          }
-        }
-      } catch (error) {
-        console.error("데이터 로딩 실패:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  const { 
+    data: cardList = [], 
+    isLoading: isCardLoading 
+  } = useAllCards();
 
-  // --- 2. 데이터 분석 로직 ---
+  // 두 데이터 중 하나라도 로딩 중이면 로딩 상태
+  const isLoading = isTxLoading || isCardLoading;
+
+  // --- 데이터 분석 로직 (기존 로직 유지) ---
 
   // Card ID 매핑
   const cardNameMap = useMemo(() => {
@@ -112,10 +90,8 @@ const SpendingDetail = () => {
       .sort((a, b) => b.amount - a.amount);
   }, [transactions, cardNameMap]);
 
-  // [통계 4] 카드별 최다 소비 카테고리 (NEW!)
+  // [통계 4] 카드별 최다 소비 카테고리
   const cardTopCategory = useMemo(() => {
-    // 1. 카드별로 카테고리 통계 집계
-    // 구조: { '신한카드': { '식비': 5000, '카페': 3000 }, ... }
     const stats: Record<string, Record<string, number>> = {};
 
     transactions.forEach(tx => {
@@ -126,9 +102,7 @@ const SpendingDetail = () => {
       stats[cardName][cat] = (stats[cardName][cat] || 0) + tx.amount_krw;
     });
 
-    // 2. 각 카드별 1등 카테고리 추출
     const result = Object.entries(stats).map(([cardName, catStats]) => {
-      // 해당 카드의 카테고리 중 max 찾기
       const topCat = Object.entries(catStats).reduce((max, curr) => 
         curr[1] > max[1] ? curr : max
       );
@@ -137,13 +111,11 @@ const SpendingDetail = () => {
         cardName,
         category: topCat[0],
         amount: topCat[1],
-        totalCardAmount: Object.values(catStats).reduce((a, b) => a + b, 0) // 비중 계산용
+        totalCardAmount: Object.values(catStats).reduce((a, b) => a + b, 0)
       };
     });
     
-    // 많이 쓴 카드 순으로 정렬
     return result.sort((a, b) => b.totalCardAmount - a.totalCardAmount);
-
   }, [transactions, cardNameMap]);
 
   // [통계 5] 인사이트
@@ -183,14 +155,23 @@ const SpendingDetail = () => {
     );
   };
 
-  if (loading) return <div className="p-20 text-center text-gray-500">데이터를 분석하고 있어요...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-white">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-gray-500 text-sm">데이터를 분석하고 있어요...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white min-h-screen pb-10">
       <div className="flex items-center p-4 border-b sticky top-0 bg-white z-10">
         <Button 
           variant="ghost" 
-          size="icon"
+          size="icon" 
           onClick={() => navigate(-1)}
           className="mr-3 hover:bg-gray-50"
         >

@@ -22,3 +22,12 @@ export const useMyCards = () => {
 
   return { cards, isLoading, deleteCard: deleteMutation.mutateAsync };
 };
+
+// [추가] 전체 카드 목록 훅 (매핑용)
+export const useAllCards = () => {
+  return useQuery({
+    queryKey: ['allCards'],
+    queryFn: cardApi.getAllCards,
+    staleTime: 1000 * 60 * 60, // 카드 목록은 잘 안 변하므로 1시간 캐싱
+  });
+};
