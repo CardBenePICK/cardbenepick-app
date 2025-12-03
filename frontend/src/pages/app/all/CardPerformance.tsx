@@ -317,7 +317,7 @@
 // export default CardPerformance;
 
 
-import { useEffect, useState } from 'react';
+// import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -332,40 +332,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { fetchWithAuth } from '@/lib/api';
 import { cn } from '@/lib/utils';
+// [변경] Hook 임포트
+import { useCardPerformance } from '@/hooks/useAnalysis';
 
-// 백엔드 데이터 타입 (파일명만 받음)
-interface CardPerformanceData {
-  card_id: string;
-  card_name: string;
-  card_company: string;
-  current_usage: number;
-  last_month_usage: number;
-  requirement: number;
-  image_filename: string; 
-}
+
+
+// // 백엔드 데이터 타입 (파일명만 받음)
+// interface CardPerformanceData {
+//   card_id: string;
+//   card_name: string;
+//   card_company: string;
+//   current_usage: number;
+//   last_month_usage: number;
+//   requirement: number;
+//   image_filename: string; 
+// }
 
 const CardPerformance = () => {
   const navigate = useNavigate();
-  const [cards, setCards] = useState<CardPerformanceData[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const res = await fetchWithAuth('http://localhost:8000/api/analysis/realtime-cards');
-
-        if (res.ok) {
-          const data = await res.json();
-          setCards(data);
-        }
-      } catch (error) {
-        console.error('데이터 로드 실패:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  // [변경] React Query 훅 사용 (데이터와 로딩 상태를 한 번에 받음)
+  const { data: cards = [], isLoading } = useCardPerformance();
 
   const getProgressPercentage = (current: number, required: number) => {
     if (!required || required === 0) return 100;
@@ -397,6 +384,7 @@ const CardPerformance = () => {
     };
   };
 
+  // 통계 계산 (cards 데이터가 있으면 계산, 없으면 0)
   const achievedCount = cards.filter((c) => (c.current_usage || 0) >= c.requirement).length;
   
   const warningCount = cards.filter((c) => {
@@ -410,6 +398,70 @@ const CardPerformance = () => {
     const req = c.requirement || 1;
     return usage < req && usage / req < 0.8;
   }).length;
+  // const [cards, setCards] = useState<CardPerformanceData[]>([]);
+  // const [loading, setLoading] = useState(true);
+
+  // useEffect(() => {
+  //   const loadData = async () => {
+  //     try {
+  //       const res = await fetchWithAuth('http://localhost:8000/api/analysis/realtime-cards');
+
+  //       if (res.ok) {
+  //         const data = await res.json();
+  //         setCards(data);
+  //       }
+  //     } catch (error) {
+  //       console.error('데이터 로드 실패:', error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+  //   loadData();
+  // }, []);
+
+  // const getProgressPercentage = (current: number, required: number) => {
+  //   if (!required || required === 0) return 100;
+  //   const safeCurrent = current || 0;
+  //   return Math.min(Math.round((safeCurrent / required) * 100), 100);
+  // };
+
+  // const getStatusInfo = (current: number, required: number) => {
+  //   const safeCurrent = current || 0;
+  //   const safeRequired = required || 1;
+  //   const ratio = safeCurrent / safeRequired;
+    
+  //   if (ratio >= 1)
+  //     return {
+  //       text: '달성 완료',
+  //       badgeClass: 'bg-green-100 text-green-700',
+  //       icon: <CheckCircle className="w-5 h-5 text-green-600" />,
+  //     };
+  //   if (ratio >= 0.8)
+  //     return {
+  //       text: '달성 임박',
+  //       badgeClass: 'bg-yellow-100 text-yellow-700',
+  //       icon: <Clock className="w-5 h-5 text-yellow-600" />,
+  //     };
+  //   return {
+  //     text: '달성 필요',
+  //     badgeClass: 'bg-red-100 text-red-700',
+  //     icon: <AlertCircle className="w-5 h-5 text-red-600" />,
+  //   };
+  // };
+
+  // const achievedCount = cards.filter((c) => (c.current_usage || 0) >= c.requirement).length;
+  
+  // const warningCount = cards.filter((c) => {
+  //   const usage = c.current_usage || 0;
+  //   const req = c.requirement || 1;
+  //   return usage < req && usage / req >= 0.8;
+  // }).length;
+  
+  // const dangerCount = cards.filter((c) => {
+  //   const usage = c.current_usage || 0;
+  //   const req = c.requirement || 1;
+  //   return usage < req && usage / req < 0.8;
+  // }).length;
 
   return (
     <div className="bg-gray-50 min-h-screen pb-10">
@@ -425,7 +477,7 @@ const CardPerformance = () => {
         <h1 className="text-lg font-semibold">카드 실적 현황</h1>
       </div>
 
-      {loading ? (
+      {isLoading ? (  // <--- 이 부분을 확인하세요!
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>

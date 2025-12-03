@@ -53,6 +53,8 @@ const App = () => (
       <BrowserRouter>
         <div className="mobile-layout">
           <Routes>
+            {/* [수정] 여기가 빠져 있었습니다! 앱의 대문(루트) 경로 추가 */}
+            <Route path="/" element={<Splash />} />
             {/* --- 인증 및 온보딩 --- */}
             <Route element={<PublicRoute />}>
               <Route path="/login" element={<Login />} />
