@@ -1,15 +1,16 @@
 import uuid
 import traceback # [추가] 상세 에러 로그용
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select, SQLModel
+from sqlmodel import Session, desc, extract, func, select, SQLModel
 
-from app.api import deps
+from app.db import session
+from app.core import security
 from app.core.security import get_current_user_payload
 # [수정된 부분: db insert] BenefitHistory 모델 임포트 추가
 from app.db.models import UserAsset, CardTransaction, BenefitHistory, BenefitSum
-
+from app.schemas.response import TransactionResponse
 router = APIRouter()
 
 class PaymentRequest(SQLModel):
@@ -24,7 +25,7 @@ class PaymentRequest(SQLModel):
 @router.post("/pay")
 def process_payment(
     request: PaymentRequest,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db),
     payload: dict = Depends(get_current_user_payload)
 ):
     """
@@ -174,3 +175,51 @@ def process_payment(
         print("="*50)
         
         raise HTTPException(status_code=500, detail="결제 처리 중 오류가 발생했습니다.")
+    
+@router.get("/history/{card_id}", response_model=List[TransactionResponse])
+def read_card_history(
+    card_id: int,
+    year: int,
+    month: int,
+    db: Session = Depends(session.get_db),
+    current_user_payload = Depends(security.get_current_user_payload)
+):
+    """
+    특정 카드의 월별 거래 내역 조회 (혜택 내역 포함)
+    """
+    # [핵심 수정] 딕셔너리에서 user_id 추출
+    user_id = current_user_payload.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token: user_id missing")
+
+    # Transaction과 BenefitHistory를 조인하여 조회
+    # Transaction 필드 전체와 BenefitHistory의 discount_amount를 가져옵니다.
+    # BenefitHistory가 없을 수도 있으므로 outerjoin(Left Join) 사용
+    statement = (
+        select(CardTransaction, func.coalesce(BenefitHistory.applied_amount, 0).label("discount_amount"))
+        .outerjoin(BenefitHistory, CardTransaction.transaction_id == BenefitHistory.transaction_id)
+        .where(CardTransaction.user_id == user_id)
+        .where(CardTransaction.card_id == card_id)
+        .where(extract('year', CardTransaction.transaction_date) == year)
+        .where(extract('month', CardTransaction.transaction_date) == month)
+        .order_by(desc(CardTransaction.transaction_date))
+    )
+    
+    try:
+        results = db.exec(statement).all()
+        
+        response_data = []
+        for tx, discount in results:
+            # Transaction 모델 데이터를 dict로 변환
+            tx_data = tx.model_dump()
+            # discount_amount 추가
+            tx_data["discount_amount"] = discount
+            
+            # TransactionResponse로 변환
+            response_data.append(TransactionResponse(**tx_data))
+            
+        return response_data
+
+    except Exception as e:
+        print(f"Error fetching card history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

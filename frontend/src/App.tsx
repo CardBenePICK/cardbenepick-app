@@ -23,6 +23,7 @@ import SurveyComplete from "./pages/onboarding/SurveyComplete";
 
 // --- 3. 메인 앱 (app) ---
 import Chat from "./pages/app/chat/Chat";
+import CardTransaction from './pages/app/wallet/CardTransaction';
 import Wallet from "./pages/app/wallet/Wallet";
 import RegisterCards from "./pages/app/wallet/RegisterCards";
 import VerifyCard from "./pages/app/wallet/VerifyCard";
@@ -77,6 +78,8 @@ const App = () => (
                 <Route index element={<Navigate to="chat" replace />} />
                 
                 <Route path="chat" element={<Chat />} />
+                
+                <Route path="wallet/history/:cardId" element={<CardTransaction />} />
                 <Route path="wallet" element={<Wallet />} />
                 <Route path="wallet/add" element={<RegisterCards />} />
                 <Route path="wallet/verify" element={<VerifyCard />} />

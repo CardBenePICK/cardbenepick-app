@@ -293,17 +293,12 @@ const Wallet = () => {
 
   const handleCardImageClick = (item: typeof carouselItems[0]) => {
     if (item.type === 'card' && item.originalAsset) {
-        const cardIdentifier = item.originalAsset.external_account_id 
-                            || item.originalAsset.external_account_name
-                            || item.originalAsset.institution_name;
-        
-        if (!cardIdentifier) {
-             toast({ title: "오류", description: "카드 식별 정보를 찾을 수 없습니다.", variant: "destructive" });
-             return;
-        }
+        console.log("이동할 자산 정보:", item.originalAsset); 
 
-        navigate(`/app/card/${encodeURIComponent(cardIdentifier)}`, { 
-            state: { isOwned: true } 
+        navigate(`/app/wallet/history/${item.originalAsset.external_account_id}`, { 
+            state: { 
+              cardInfo: item.originalAsset 
+            } 
         });
     }
   };

@@ -1,5 +1,6 @@
 import { client } from './client';
 
+
 // [추가] Wallet.tsx에서 사용할 타입 정의
 export interface PayRequest {
   user_asset_id: number;
@@ -29,6 +30,22 @@ export interface PointBalanceResponse {
   earn_count: number;
 }
 
+// 데이터 타입 정의 (백엔드 모델과 일치)
+export interface TransactionItem {
+  id: number;
+  transaction_id: string;
+  user_id: number;
+  card_id: number;
+  amount_krw: number;
+  merchant_name: string;
+  transaction_date: string; // ISO 8601 String
+  card_company?: string;
+  installment_months?: number;
+
+  // [추가] 할인 금액 (Optional)
+  discount_amount?: number;
+}
+
 export const transactionApi = {
   // 결제 (Wallet.tsx)
   pay: async (data: PayRequest) => {
@@ -45,6 +62,14 @@ export const transactionApi = {
   // 포인트 잔액 조회
   getPointBalance: async () => {
     const response = await client.get<PointBalanceResponse>('/points/balance');
+    return response.data;
+  },
+  // [핵심] 특정 카드의 월별 거래 내역 조회
+  // GET /api/v1/transactions/history/13?year=2025&month=12
+  getCardHistory: async (cardId: number | string, year: number, month: number) => {
+    const response = await client.get<TransactionItem[]>(`/transactions/history/${cardId}`, {
+      params: { year, month }
+    });
     return response.data;
   },
 };

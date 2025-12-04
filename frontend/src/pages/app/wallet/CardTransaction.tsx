@@ -3,319 +3,277 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
   ArrowLeft, ChevronLeft, ChevronRight, 
-  ShoppingBag, Coffee, Bus, Fuel, Utensils, ShoppingCart, Smartphone, Ticket, Loader2, CreditCard
+  SearchX
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
-  format, parseISO, isSameDay, getDay, getDate, 
-  startOfMonth, endOfMonth, startOfWeek, endOfWeek, 
-  eachDayOfInterval, isSameMonth, isToday, subMonths, addMonths
+  format, subMonths, addMonths, parseISO, isSameMonth, isFuture 
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 
-// [변경] transactionApi 사용
 import { transactionApi, TransactionItem } from '@/api/transaction';
 import { useCardStore } from '@/store/useCardStore';
+import { IMAGE_BASE_URL, PLACEHOLDER_IMAGE_URL } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 
-// --- 아이콘 매핑 ---
-const getCategoryIcon = (merchantName: string) => {
-  const name = merchantName.toLowerCase();
-  const style = "w-5 h-5 text-white";
-  
-  if (name.includes('스타벅스') || name.includes('카페')) return <div className="bg-green-500 p-2.5 rounded-full shadow-sm"><Coffee className={style} /></div>;
-  if (name.includes('편의점') || name.includes('마트')) return <div className="bg-blue-500 p-2.5 rounded-full shadow-sm"><ShoppingCart className={style} /></div>;
-  if (name.includes('택시') || name.includes('교통') || name.includes('지하철')) return <div className="bg-yellow-500 p-2.5 rounded-full shadow-sm"><Bus className={style} /></div>;
-  if (name.includes('주유')) return <div className="bg-slate-600 p-2.5 rounded-full shadow-sm"><Fuel className={style} /></div>;
-  if (name.includes('식당') || name.includes('음식') || name.includes('버거')) return <div className="bg-orange-500 p-2.5 rounded-full shadow-sm"><Utensils className={style} /></div>;
-  if (name.includes('통신')) return <div className="bg-purple-500 p-2.5 rounded-full shadow-sm"><Smartphone className={style} /></div>;
-  if (name.includes('넷플릭스') || name.includes('영화')) return <div className="bg-red-500 p-2.5 rounded-full shadow-sm"><Ticket className={style} /></div>;
-  
-  return <div className="bg-gray-400 p-2.5 rounded-full shadow-sm"><ShoppingBag className={style} /></div>;
-};
-
-// --- 요일 텍스트 ---
-const getDayKo = (dateStr: string) => {
-  const day = getDay(parseISO(dateStr));
-  const days = ['일', '월', '화', '수', '목', '금', '토'];
-  return days[day];
-};
+// 거래 내역 아이템 확장 타입 (할인 금액 포함)
+interface ExtendedTransactionItem extends TransactionItem {
+  discount_amount?: number;
+}
 
 const CardTransaction = () => {
   const navigate = useNavigate();
-  // URL 파라미터에서 card_id(assetId)를 가져옵니다. (예: 13)
-  const { assetId } = useParams<{ assetId: string }>(); 
+  const { cardId } = useParams<{ cardId: string }>();
   const location = useLocation();
   const { assets } = useCardStore();
 
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  // 1. 카드 정보 찾기 (헤더 표시용)
+  // 1. 카드 정보 찾기
   const cardInfo = useMemo(() => {
     const fromState = location.state?.cardInfo;
     if (fromState) return fromState;
     if (assets.length > 0) {
-        return assets.find(a => a.asset_id.toString() === assetId);
+      return assets.find(a => a.asset_id.toString() === cardId);
     }
     return null;
-  }, [assets, assetId, location.state]);
+  }, [assets, cardId, location.state]);
 
-  // 2. [변경] 백엔드 API를 사용하여 해당 카드의 내역만 가져오기
-  const { 
-    data: transactions = [], 
-    isLoading 
-  } = useQuery({
-    queryKey: ['cardHistory', assetId, currentMonth.getFullYear(), currentMonth.getMonth()],
+  // 2. API 데이터 호출
+  const { data: transactions = [], isLoading, isError, error } = useQuery({
+    queryKey: ['cardHistory', cardId, format(currentDate, 'yyyy-MM')],
     queryFn: () => transactionApi.getCardHistory(
-        assetId!, // URL의 assetId (예: "13")
-        currentMonth.getFullYear(), 
-        currentMonth.getMonth() + 1
+      Number(cardId),
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1
     ),
-    enabled: !!assetId, // assetId가 있을 때만 호출
+    enabled: !!cardId,
   });
 
-  // 3. 데이터 포맷팅 (UI 렌더링용)
-  // 백엔드에서 이미 필터링되었으므로 추가 필터링 없이 변환만 수행
-  const formattedTransactions = useMemo(() => {
-    return transactions.map((tx: TransactionItem) => {
-        const dateObj = new Date(tx.transaction_date);
-        return {
-          id: tx.transaction_id || tx.id.toString(),
-          amount: tx.amount_krw,
-          merchant: tx.merchant_name,
-          // 카드 정보가 있으면 사용, 없으면 API 데이터 사용
-          card_company: cardInfo?.institution_name || tx.card_company || '카드', 
-          date: tx.transaction_date.split('T')[0],
-          time: dateObj.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        };
-      });
-  }, [transactions, cardInfo]);
+  // [디버깅 로그]
+  useEffect(() => {
+    if (transactions) {
+        console.log(`[CardTransaction] ✅ 데이터 수신 완료 (${transactions.length}건)`);
+    }
+  }, [transactions]);
 
-  const totalExpense = useMemo(() => formattedTransactions.reduce((acc, curr) => acc + curr.amount, 0), [formattedTransactions]);
-  
-  const groupedTransactions = useMemo(() => {
-    const grouped: Record<string, typeof formattedTransactions> = {};
-    const sorted = [...formattedTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    sorted.forEach(tx => {
-      if (!grouped[tx.date]) grouped[tx.date] = [];
-      grouped[tx.date].push(tx);
-    });
-    return grouped;
-  }, [formattedTransactions]);
 
-  const dailyTotals = useMemo(() => {
-    const totals: Record<string, number> = {};
-    formattedTransactions.forEach(tx => {
-      totals[tx.date] = (totals[tx.date] || 0) + tx.amount;
-    });
-    return totals;
-  }, [formattedTransactions]);
-
-  const selectedDayTransactions = useMemo(() => {
-    if (!selectedDate) return [];
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    return formattedTransactions.filter(t => t.date === dateStr);
-  }, [selectedDate, formattedTransactions]);
-
-  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
-  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
-
-  const calendarWeeks = useMemo(() => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart);
-    const endDate = endOfWeek(monthEnd);
-    const allDays = eachDayOfInterval({ start: startDate, end: endDate });
+  // 3. 통계 계산 및 날짜별 그룹화
+  const { totalAmount, totalBenefit, groupedTransactions } = useMemo(() => {
+    let amountSum = 0;
+    let benefitSum = 0;
     
-    const weeks: Date[][] = [];
-    let currentWeek: Date[] = [];
-
-    allDays.forEach((day) => {
-      currentWeek.push(day);
-      if (currentWeek.length === 7) {
-        weeks.push(currentWeek);
-        currentWeek = [];
-      }
-    });
-    return weeks;
-  }, [currentMonth]);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-white">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-gray-500 text-sm">내역을 불러오는 중...</p>
-        </div>
-      </div>
+    // 최신순 정렬
+    const sortedList = [...transactions].sort((a, b) => 
+      new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
     );
-  }
+
+    // 통계 계산
+    sortedList.forEach((tx: ExtendedTransactionItem) => {
+        // if (tx.transaction_type !== 'cancel') {
+        //     amountSum += tx.amount_krw;
+        //     benefitSum += (tx.discount_amount || 0);
+        // }
+    });
+
+    // 날짜별 그룹화
+    const grouped: Record<string, ExtendedTransactionItem[]> = {};
+    sortedList.forEach(tx => {
+        const dateKey = tx.transaction_date.split('T')[0]; // YYYY-MM-DD
+        if (!grouped[dateKey]) grouped[dateKey] = [];
+        grouped[dateKey].push(tx);
+    });
+
+    return { 
+      totalAmount: amountSum, 
+      totalBenefit: benefitSum,
+      groupedTransactions: grouped
+    };
+  }, [transactions]);
+
+  const handlePrevMonth = () => setCurrentDate(prev => subMonths(prev, 1));
+  const handleNextMonth = () => setCurrentDate(prev => addMonths(prev, 1));
+  
+  const nextMonthDate = addMonths(currentDate, 1);
+  const isNextBtnDisabled = nextMonthDate > new Date();
+
+  // [수정] 이미지 확장자 처리 로직
+  // 기본적으로 .png를 시도하고, onError에서 다른 확장자를 시도합니다.
+  // 상태를 사용하여 현재 시도 중인 이미지 URL을 관리합니다.
+  const [currentImageSrc, setCurrentImageSrc] = useState<string>('');
+
+  useEffect(() => {
+    if (cardId) {
+        // 초기값: .png로 설정
+        setCurrentImageSrc(`${IMAGE_BASE_URL}/${cardId}card.png`);
+    }
+  }, [cardId]);
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const target = e.currentTarget;
+    const currentSrc = target.src;
+
+    // .png 실패 시 -> .jpg 시도
+    if (currentSrc.endsWith('.png')) {
+        setCurrentImageSrc(`${IMAGE_BASE_URL}/${cardId}card.jpg`);
+    } 
+    // .jpg 실패 시 -> .gif 시도
+    else if (currentSrc.endsWith('.jpg')) {
+        setCurrentImageSrc(`${IMAGE_BASE_URL}/${cardId}card.gif`);
+    }
+    // .gif 실패 시 -> placeholder로 대체
+    else if (currentSrc.endsWith('.gif')) {
+        target.src = PLACEHOLDER_IMAGE_URL;
+        // 무한 루프 방지를 위해 onError 핸들러 제거 (선택사항)
+        target.onerror = null; 
+    } else {
+        // 그 외 실패 시 바로 placeholder
+        target.src = PLACEHOLDER_IMAGE_URL;
+    }
+  };
+
 
   return (
-    <div className="flex flex-col min-h-screen bg-white w-full"> 
+    <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <div className="flex items-center p-4 bg-white sticky top-0 z-30 border-b border-gray-50">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mr-3 hover:bg-gray-50">
-          <ArrowLeft className="w-6 h-6 text-gray-900" />
+      <div className="flex items-center p-4 bg-white sticky top-0 z-10 border-b border-gray-50">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mr-2">
+          <ArrowLeft className="w-6 h-6 text-gray-800" />
         </Button>
-        <div className="flex flex-col">
-            <h1 className="text-lg font-bold text-gray-900 leading-none">
-                {cardInfo?.external_account_name || '카드 내역'}
-            </h1>
-            <span className="text-xs text-gray-500 mt-1">
-                {cardInfo?.institution_name}
-            </span>
-        </div>
+        <h1 className="text-lg font-bold text-gray-900">카드 이용 내역</h1>
       </div>
 
-      {/* Month & Summary */}
-      <div className="px-6 pb-2 bg-white z-20 pt-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-1">
-            <span className="text-2xl font-extrabold text-gray-900 mr-2">
-              {currentMonth.getMonth() + 1}월
-            </span>
-            <div className="flex bg-gray-100 rounded-full p-0.5">
-              <button onClick={prevMonth} className="p-1 hover:bg-white rounded-full transition-all shadow-sm"><ChevronLeft className="w-4 h-4 text-gray-600" /></button>
-              <button onClick={nextMonth} className="p-1 hover:bg-white rounded-full transition-all shadow-sm"><ChevronRight className="w-4 h-4 text-gray-600" /></button>
+      <div className="flex-1 overflow-y-auto pb-8 scrollbar-hide">
+        {/* --- 상단 카드 정보 & 월별 요약 --- */}
+        <div className="bg-white pb-8 pt-2 flex flex-col items-center border-b-[10px] border-gray-50 z-0 mb-2">
+            
+            <div className="w-32 h-auto my-6 shadow-lg rounded-lg transform transition-transform hover:scale-105 duration-300">
+                <img 
+                    src={currentImageSrc || PLACEHOLDER_IMAGE_URL} // 상태값 사용
+                    alt={cardInfo?.external_account_name || "카드"} 
+                    className="w-full h-full object-contain rounded-lg"
+                    onError={handleImageError} // 에러 핸들러 연결
+                />
             </div>
-          </div>
-          <div className="text-right">
-             <p className="text-xs text-gray-500 font-medium mb-0.5">이번 달 지출</p>
-             <p className="text-lg font-bold text-gray-900">{totalExpense.toLocaleString()}원</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto pb-32">
-        {/* List View */}
-        {viewMode === 'list' && (
-          <div className="animate-in fade-in duration-300">
-            {Object.keys(groupedTransactions).length > 0 ? (
-              Object.entries(groupedTransactions).map(([dateStr, txs]) => {
-                const daySum = txs.reduce((acc, curr) => acc + curr.amount, 0);
-                const dateObj = parseISO(dateStr);
-                return (
-                  <div key={dateStr} className="mb-2">
-                    <div className="flex justify-between items-center px-6 py-4 bg-gray-50/50 border-t border-b border-gray-100">
-                      <span className="text-sm font-semibold text-gray-600">
-                        {getDate(dateObj)}일 {getDayKo(dateStr)}요일
-                      </span>
-                      <span className="text-sm font-bold text-gray-900">-{daySum.toLocaleString()}원</span>
-                    </div>
-                    <div className="px-6">
-                      {txs.map((tx) => (
-                        <div key={tx.id} className="flex items-center justify-between py-4 border-b border-gray-100 last:border-none">
-                          <div className="flex items-center gap-4">
-                            {getCategoryIcon(tx.merchant)}
-                            <div>
-                              <div className="font-bold text-gray-900 text-[16px]">{tx.merchant}</div>
-                              <div className="text-xs text-gray-400 mt-0.5">{tx.time}</div>
-                            </div>
-                          </div>
-                          <div className="font-bold text-gray-900 text-[16px]">-{tx.amount.toLocaleString()}원</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                <ShoppingBag className="w-12 h-12 mb-4 opacity-20" />
-                <p>이번 달 내역이 없습니다.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Calendar View */}
-        {viewMode === 'calendar' && (
-          <div className="flex flex-col h-full animate-in fade-in duration-300">
-            <div className="grid grid-cols-7 text-center py-2 bg-white mb-2 border-b border-gray-100">
-              {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
-                <span key={i} className={cn("text-xs font-normal", i === 0 ? "text-red-500" : "text-gray-400")}>{day}</span>
-              ))}
-            </div>
-            <div className="flex flex-col">
-              {calendarWeeks.map((week, weekIndex) => {
-                const weeklyTotal = week.reduce((sum, day) => {
-                  if (!isSameMonth(day, currentMonth)) return sum;
-                  const dateKey = format(day, 'yyyy-MM-dd');
-                  return sum + (dailyTotals[dateKey] || 0);
-                }, 0);
-                return (
-                  <div key={weekIndex} className="mb-2">
-                    <div className="grid grid-cols-7">
-                      {week.map((day, dayIndex) => {
-                        const dateKey = format(day, 'yyyy-MM-dd');
-                        const dayAmount = dailyTotals[dateKey] || 0;
-                        const isSelected = selectedDate && isSameDay(day, selectedDate);
-                        const isCurrentMonth = isSameMonth(day, currentMonth);
-                        const isTodayDate = isToday(day);
-                        return (
-                          <div key={dayIndex} onClick={() => setSelectedDate(day)}
-                            className={cn("min-h-[70px] flex flex-col items-center justify-start pt-2 pb-1 relative cursor-pointer rounded-lg transition-all mx-0.5", isSelected ? "bg-blue-50" : "hover:bg-gray-50")}>
-                            <span className={cn("text-sm w-7 h-7 flex items-center justify-center rounded-full mb-1", isTodayDate ? "bg-slate-800 text-white font-bold" : isSelected ? "text-blue-600 font-bold" : dayIndex === 0 ? "text-red-500" : "text-gray-700", !isCurrentMonth && "text-gray-300")}>
-                              {getDate(day)}
-                            </span>
-                            {dayAmount > 0 && isCurrentMonth && (
-                              <span className={cn("text-[10px] font-bold tracking-tight text-blue-600", !isCurrentMonth && "opacity-30")}>
-                                -{dayAmount >= 10000 ? `${(dayAmount/10000).toFixed(0)}만` : `${(dayAmount/1000).toFixed(0)}천`}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="w-full bg-gray-50 py-2 px-4 flex justify-end items-center mt-1 mb-2">
-                      <span className="text-xs text-gray-500 mr-2">{weekIndex + 1}주 합계</span>
-                      <span className={cn("text-sm font-bold", weeklyTotal > 0 ? "text-gray-900" : "text-gray-300")}>-{weeklyTotal.toLocaleString()}원</span>
-                    </div>
-                  </div>
-                );
-              })}
+            
+            <div className="flex items-center justify-center space-x-8 mb-6">
+                <button onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-gray-50 text-gray-400 hover:text-gray-900 transition-colors">
+                    <ChevronLeft className="w-6 h-6" />
+                </button>
+                <span className="text-xl font-extrabold text-gray-900 tracking-tight">
+                    {format(currentDate, 'yyyy년 M월', { locale: ko })}
+                </span>
+                <button 
+                    onClick={handleNextMonth} 
+                    disabled={isNextBtnDisabled}
+                    className={cn("p-2 rounded-full transition-colors", isNextBtnDisabled ? "text-gray-200 cursor-not-allowed" : "text-gray-400 hover:bg-gray-50 hover:text-gray-900")}
+                >
+                    <ChevronRight className="w-6 h-6" />
+                </button>
             </div>
 
-            {/* Bottom List */}
-            <div className="px-6 py-4 bg-white min-h-[200px] border-t-8 border-gray-50 mt-2">
-              {selectedDate ? (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center pb-4 mb-2 border-b border-gray-100">
-                    <h3 className="text-base font-bold text-gray-900">{format(selectedDate, 'd일 EEEE', { locale: ko })}</h3>
-                    {(dailyTotals[format(selectedDate, 'yyyy-MM-dd')] || 0) > 0 && (
-                      <span className="text-blue-600 font-bold text-lg">-{dailyTotals[format(selectedDate, 'yyyy-MM-dd')].toLocaleString()}원</span>
-                    )}
-                  </div>
-                  {selectedDayTransactions.length > 0 ? (
-                    selectedDayTransactions.map(tx => (
-                      <div key={tx.id} className="flex items-center justify-between py-4 border-b border-gray-100 last:border-none">
-                        <div className="flex items-center gap-4">
-                          {getCategoryIcon(tx.merchant)}
-                          <div>
-                            <p className="font-bold text-gray-900 text-sm">{tx.merchant}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{tx.time}</p>
-                          </div>
-                        </div>
-                        <p className="font-bold text-gray-900 text-sm">-{tx.amount.toLocaleString()}원</p>
-                      </div>
-                    ))
-                  ) : (<div className="text-center py-8 text-gray-400 text-sm">지출 내역이 없습니다.</div>)}
+            <div className="text-center w-full px-8 space-y-1">
+                <h2 className="text-sm font-medium text-gray-500 mb-4">
+                    {cardInfo?.external_account_name || cardInfo?.institution_name || '내 카드'}
+                </h2>
+                
+                <div className="flex justify-between items-center w-full max-w-[280px] mx-auto py-2">
+                    <div className="text-center">
+                        <p className="text-[11px] text-gray-400 mb-1">이번 달 사용 금액</p>
+                        <p className="text-lg font-bold text-gray-900">
+                            {isLoading ? <Skeleton className="h-6 w-20 mx-auto" /> : `${totalAmount.toLocaleString()}원`}
+                        </p>
+                    </div>
+                    <div className="h-8 w-[1px] bg-gray-100"></div>
+                    <div className="text-center">
+                        <p className="text-[11px] text-gray-400 mb-1">받은 혜택</p>
+                        <p className="text-lg font-bold text-[#45B7D1]">
+                            {isLoading ? <Skeleton className="h-6 w-20 mx-auto" /> : `${totalBenefit.toLocaleString()}원`}
+                        </p>
+                    </div>
                 </div>
-              ) : (<div className="text-center py-8 text-gray-400">날짜를 선택해주세요.</div>)}
             </div>
-          </div>
-        )}
-      </div>
+        </div>
 
-      {/* Floating Tab */}
-      <div className="fixed bottom-20 left-0 right-0 flex justify-center z-30 pointer-events-none">
-        <div className="bg-slate-800 text-white rounded-full p-1.5 flex shadow-2xl items-center pointer-events-auto transform transition-transform hover:scale-105">
-          <button onClick={() => setViewMode('list')} className={cn("px-6 py-2.5 rounded-full text-sm font-bold transition-all", viewMode === 'list' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-white")}>내역</button>
-          <button onClick={() => setViewMode('calendar')} className={cn("px-6 py-2.5 rounded-full text-sm font-bold transition-all", viewMode === 'calendar' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-white")}>달력</button>
+        {/* --- 거래 내역 리스트 --- */}
+        <div className="px-0">
+            {isLoading ? (
+                // Loading Skeletons
+                <div className="px-5 py-4 space-y-6">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="space-y-3">
+                            <Skeleton className="w-20 h-4 bg-gray-100" />
+                            <div className="flex justify-between">
+                                <div className="space-y-1">
+                                    <Skeleton className="w-32 h-5 bg-gray-100" />
+                                    <Skeleton className="w-16 h-3 bg-gray-50" />
+                                </div>
+                                <Skeleton className="w-24 h-5 bg-gray-100" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : Object.keys(groupedTransactions).length > 0 ? (
+                Object.entries(groupedTransactions).map(([dateStr, txs]) => {
+                    const dateObj = parseISO(dateStr);
+                    return (
+                        <div key={dateStr} className="mb-6">
+                            {/* 날짜 헤더 */}
+                            <div className="px-5 pb-2 sticky top-0 bg-white/95 backdrop-blur-sm z-10 pt-4 border-b border-gray-50">
+                                <span className="text-sm font-bold text-gray-400">
+                                    {format(dateObj, 'M월 d일')}
+                                </span>
+                            </div>
+
+                            {/* 해당 날짜 내역들 */}
+                            <div className="flex flex-col">
+                                {txs.map((tx) => {
+                                    const txTime = parseISO(tx.transaction_date);
+                                    const isCancel = false;
+
+                                    return (
+                                        <div 
+                                            key={tx.id} 
+                                            className="flex items-start justify-between px-5 py-4 active:bg-gray-50 active:scale-[0.99] transition-all duration-200 cursor-pointer border-b border-gray-50 last:border-none"
+                                        >
+                                            <div className="flex flex-col gap-0.5">
+                                                {/* 가맹점 이름 */}
+                                                <span className={cn("text-[15px] font-bold text-gray-900", isCancel && "text-gray-400 line-through")}>
+                                                    {tx.merchant_name}
+                                                </span>
+                                                {/* 시간 (요청하신 색상 적용) */}
+                                                <span className="text-[11px] font-medium text-[#45B7D1]">
+                                                    {format(txTime, 'HH:mm')}
+                                                    {isCancel && <span className="text-red-400 ml-1">취소</span>}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex flex-col items-end gap-0.5">
+                                                {/* 결제 금액 */}
+                                                <span className={cn("text-[15px] font-bold", isCancel ? "text-gray-400 line-through" : "text-gray-900")}>
+                                                    {tx.amount_krw.toLocaleString()}원
+                                                </span>
+                                                {/* 할인 금액 (혜택) */}
+                                                {!isCancel && tx.discount_amount && tx.discount_amount > 0 ? (
+                                                    <span className="text-[11px] font-bold text-[#45B7D1]">
+                                                        {tx.discount_amount.toLocaleString()}원 할인
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })
+            ) : (
+                <div className="flex flex-col items-center justify-center py-24 text-gray-300">
+                    <SearchX className="w-12 h-12 mb-3 opacity-30" />
+                    <p className="text-sm">이번 달 거래 내역이 없습니다.</p>
+                </div>
+            )}
         </div>
       </div>
     </div>
