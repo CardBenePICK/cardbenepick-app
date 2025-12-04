@@ -92,7 +92,7 @@ class UserAsset(SQLModel, table=True):
     institution_name: str = Field(max_length=100, nullable=False)
     
     # [OK] sa_column이 없으므로 Field()에 index 설정 가능
-    external_account_id: str = Field(max_length=100, index=True, nullable=False)
+    external_account_id: str = Field(max_length=100, index=True, nullable=False)    # 다른 table의 card_id와 매핑되는 값 13,51 등
     external_account_name: Optional[str] = Field(max_length=200, default=None)
 
     # [REVISED] nullable=False 중복 제거 (Column 내부에만 명시)
