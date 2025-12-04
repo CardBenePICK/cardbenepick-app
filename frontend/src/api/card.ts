@@ -7,6 +7,22 @@ export interface CardBenefit {
   detail: any;
 }
 
+export interface BenefitSum {
+  user_id: number;
+  benefit_id: string;
+  day_amount: number;
+  day_count: number;
+
+  week_amount: number;
+  week_count: number;
+
+  month_amount: number;
+  month_count: number;
+
+  year_amount: number;
+  year_count: number;
+}
+
 export interface CardMaster {
   card_id: number;
   card_name: string;

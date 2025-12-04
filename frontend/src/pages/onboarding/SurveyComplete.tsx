@@ -1,232 +1,48 @@
-import { useEffect, useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, ThumbsUp, ThumbsDown, ArrowRight, RefreshCw, AlertCircle, HelpCircle, Check, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { api } from '@/lib/api'; // [주의] api 인스턴스 import 확인 필요
-
-// --- 1. 타입 정의 ---
-interface Candidate {
-  cluster: number;
-  score: number;
-}
-
-interface PredictionResponse {
-  status: string;
-  request_id: string; 
-  predicted_cluster: number;
-  confidence_score: number;
-  ranking?: { cluster: number; probability: number }[]; 
-  candidates?: { cluster: number; score: number }[];
-}
-
-interface FeedbackPayload {
-  request_id: string;
-  predicted_cluster: number;
-  confidence_score: number;
-  is_correct: boolean;
-  corrected_cluster: number; 
-  comment: string;
-}
-
-// [추가] 외부 서버 전송용 데이터 타입 정의
-interface UserPreferencePayload {
-    user_id?: string; // 유저 ID가 있다면 포함
-    cluster_id: number;
-    preferred_categories: string[];
-    timestamp: string;
-}
+import { useML } from '@/hooks/useML';
 
 const SurveyComplete = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const surveyResult = location.state?.surveyResult;
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
-  // 데이터 상태
-  const [apiResponse, setApiResponse] = useState<PredictionResponse | null>(null);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  // Custom Hook 사용 (데이터 로직 분리)
+  const { 
+    loading, 
+    error, 
+    apiResponse, 
+    candidates, 
+    selectedCluster, 
+    setSelectedCluster, 
+    submitResult 
+  } = useML(surveyResult);
   
   // UI 상태
   const [feedback, setFeedback] = useState<'good' | 'bad' | null>(null);
-  const [selectedCluster, setSelectedCluster] = useState<number>(0); 
   const [openDescId, setOpenDescId] = useState<number | null>(null);
-  const [userComment, setUserComment] = useState(''); // [필수] 사용자 코멘트 상태
+  const [userComment, setUserComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const topRef = useRef<HTMLDivElement>(null);
 
-  // --- 2. API 호출 ---
-  useEffect(() => {
-    // [RAG 체크 1] 설문 결과 데이터 확인
-    console.log("📊 [RAG 체크 1] 전달받은 설문 데이터:", surveyResult);
-
-    const fetchAnalysis = async () => {
-      if (!surveyResult) {
-        setError('설문 데이터가 없습니다.');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const payload = {
-          AGE: surveyResult.ageGroup || "25",
-          SEX_CD: Number(surveyResult.gender || 1),
-          LIFE_STAGE: surveyResult.lifeStage || "UNI",
-          Q_SPEND: surveyResult.monthlySpend || "1_Low",
-          Q_CAR: surveyResult.hasCar || "No",
-          Q_DINING: surveyResult.diningFrequency || "1_Low",
-          Q_LEISURE: surveyResult.hasLeisure || "No",
-          Q_EDU: surveyResult.hasEdu || "No",
-          Q_HEALTH: surveyResult.hasHealth || "No",
-        };
-
-        const response = await fetch('http://localhost:9000/predict', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) throw new Error('서버 오류');
-
-        const data: PredictionResponse = await response.json();
-        console.log("✅ ML 서버 예측 완료:", data);
-
-        // 데이터 정제
-        const rawList = data.ranking || data.candidates || [];
-        let normalizedList: Candidate[] = rawList.map((item: any) => ({
-            cluster: item.cluster,
-            score: item.probability !== undefined ? item.probability : (item.score || 0)
-        }));
-
-        if (normalizedList.length === 0) {
-            const allClusters = [0, 1, 2, 3, 4];
-            normalizedList.push({ cluster: data.predicted_cluster, score: data.confidence_score || 0.85 });
-            allClusters.forEach(id => {
-                if (id !== data.predicted_cluster) normalizedList.push({ cluster: id, score: 0.05 });
-            });
-        }
-        normalizedList.sort((a, b) => b.score - a.score);
-
-        setTimeout(() => {
-            setApiResponse(data);
-            setCandidates(normalizedList);
-            setSelectedCluster(data.predicted_cluster);
-            setLoading(false);
-        }, 1500);
-
-      } catch (err) {
-        console.error(err);
-        setError('분석 서버와 연결할 수 없습니다.');
-        setLoading(false);
-      }
-    };
-
-    fetchAnalysis();
-  }, [surveyResult]);
-
-  // --- 3. 최종 제출 핸들러 ---
+  // 핸들러: 최종 제출
   const handleSubmit = async () => {
-    if (!apiResponse) return;
     setIsSubmitting(true);
-
-    // 코멘트 정리
-    let finalComment = userComment.trim();
-    if (feedback === 'good') {
-        finalComment = "사용자 동의";
-    } else if (!finalComment) {
-        finalComment = "사용자 수정 (코멘트 없음)";
-    }
-
-    const finalPayload: FeedbackPayload = {
-        request_id: apiResponse.request_id,
-        predicted_cluster: apiResponse.predicted_cluster,
-        confidence_score: apiResponse.confidence_score,
-        is_correct: feedback === 'good',
-        corrected_cluster: selectedCluster, 
-        comment: finalComment 
-    };
-
-    // 2. [추가] 외부 서버 활용용 데이터 준비 (클러스터 + 카테고리)
-    // [RAG 체크 2] 카테고리 데이터 확인 (이게 비어있으면 RAG가 정확하지 않음)
-    const userCategories = Array.isArray(surveyResult?.preferredCategories) 
-        ? surveyResult.preferredCategories 
-        : [];
-    
-    console.log("🏷️ [RAG 체크 2] 선택된 카테고리:", userCategories);
-
-    const integrationPayload: UserPreferencePayload = {
-        cluster_id: selectedCluster, // 사용자가 최종 선택한 클러스터
-        preferred_categories: userCategories, // 설문 10번 문항 값
-        timestamp: new Date().toISOString()
-    };
-
-    // --- [확인용 로그] ---
-    console.group("🚀 데이터 전송 준비");
-    console.log("1. 피드백 데이터 (ML 학습용):", finalPayload);
-    console.log("2. 통합 데이터 (서비스 활용용):", integrationPayload);
-    console.groupEnd();
-    
-    // (A) ML 서버로 피드백 전송 (로그만 남기고 에러 무시)
     try {
-        await fetch('http://localhost:9000/feedback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(finalPayload),
-        });
-        console.log("✅ ML 피드백 전송 완료");
-    } catch (e) {
-        console.warn("ML 피드백 전송 실패 (무시):", e);
-    }
-
-    // (B) 백엔드(에이전트 연결)로 데이터 전송 및 RAG 결과 수신
-    try {
-        // 보낼 데이터 구성
-        const agentPayload = {
-            user_id: "test_user_id", // 실제 구현시: user?.id || "guest"
-            cluster_id: selectedCluster, 
-            preferred_categories: userCategories, // [수정] 빈 배열 [] 대신 실제 데이터 사용
-            timestamp: new Date().toISOString()
-        };
-
-        console.log("📤 [RAG 체크 3] 백엔드로 요청 보냄 (Payload):", agentPayload);
-
-        // 메인 백엔드 호출 (api 인스턴스 사용 가정)
-        // 만약 api 인스턴스가 없다면 axios나 fetch로 대체하세요.
-        const response = await api.post('/users/preferences', agentPayload);
-        
-        // [RAG 체크 4] 응답 데이터 확인
-        console.log("📥 [RAG 체크 4] 백엔드 응답 도착 (Status):", response.status);
-        console.log("📦 [RAG 체크 5] 응답 데이터 (Body):", response.data);
-
-        // RAG 결과가 있는지 확인
-        if (response.data && (response.data.recommendation || response.data.result)) {
-             console.log("💎 [RAG 체크 6] RAG 추천 결과 확인됨!");
-        } else {
-             console.warn("⚠️ [RAG 체크 6] RAG 추천 결과가 응답에 포함되지 않았습니다.");
+        if (feedback) {
+            await submitResult(feedback, userComment);
         }
-
-        // 성공 시 결과 페이지로 이동
-        setTimeout(() => {
-            setIsSubmitting(false);
-            navigate('/recommendations', { 
-                state: { 
-                    cluster: selectedCluster,
-                    recommendationData: response.data // 백엔드 응답 데이터 전달
-                } 
-            });
-        }, 500);
-
-    } catch (e) {
-        console.error("❌ [RAG 에러] 백엔드 전송 실패:", e);
+    } catch (err) {
+        alert(err instanceof Error ? err.message : "오류가 발생했습니다.");
         setIsSubmitting(false);
-        alert("추천 정보를 불러오는 중 오류가 발생했습니다.");
     }
   };
 
-  // --- 4. 클러스터 컨텐츠 ---
+  // --- 클러스터 컨텐츠 (기존 유지) ---
   const getClusterContent = (clusterId: number) => {
     switch (clusterId) {
       case 0: return { title: "실속 미식가", eng: "Value Diner", emoji: "🥘", desc: "맛있는 외식과 건강 관리가 삶의 낙!\n하지만 낭비는 싫어하는 실속파입니다.", tag: "미식·건강", colorClass: "text-orange-600", bgClass: "bg-orange-50 border-orange-100" };
