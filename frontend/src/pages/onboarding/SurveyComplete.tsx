@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, ThumbsUp, ThumbsDown, ArrowRight, RefreshCw, AlertCircle, HelpCircle, Check, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useML } from '@/hooks/useML';
+import { useML } from '@/hooks/useML'; // [변경] Hook 교체
 
 const SurveyComplete = () => {
   const navigate = useNavigate();
@@ -39,6 +39,9 @@ const SurveyComplete = () => {
     } catch (err) {
         alert(err instanceof Error ? err.message : "오류가 발생했습니다.");
         setIsSubmitting(false);
+    } finally {
+        // 성공 시 페이지 이동하므로 finally 처리가 의미 없을 수 있으나 에러 시 복구용
+        // setIsSubmitting(false); 
     }
   };
 

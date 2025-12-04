@@ -3,6 +3,8 @@ import axios from 'axios'; // ML/Agent 서버는 별도 인스턴스 또는 axio
 
 // [환경변수] ML 서버 주소
 const ML_BASE_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:9000';
+const AGENT_BASE_URL = import.meta.env.VITE_AGENT_API_URL || 'http://localhost:8090/agent'; // 필요시 사용
+
 
 // 데이터 타입 정의
 export interface SurveyResult {
@@ -35,9 +37,30 @@ export interface FeedbackPayload {
   corrected_cluster: number;
   comment: string;
 }
+// [기존] 추천 결과 타입 (LLM의 내부 JSON 구조)
+export interface RecommendationResult { // 이름을 변경하여 LLM 결과 구조임을 명확히 합니다.
+    recommendation_summary: {
+        recommended_card: string;
+        selection_reason: string;
+    };
+    card_comparison_list: {
+        card_name: string;
+        reason: string;
+    }[];
+}
+
+// [추가] Agent 서버의 최상위 응답 구조를 정의합니다.
+// 이 타입이 axios.post의 Generic 타입으로 사용되어야 합니다.
+export interface AgentResponse {
+    status: string;
+    message: string;
+    received_data: any; // 사용하지 않으므로 any로 처리
+    recommendation: RecommendationResult; // 핵심! LLM 결과가 이 키 아래에 있습니다.
+}
+
 
 export const mlApi = {
-  // ML 서버로 예측 요청
+  // 1. ML 서버: 클러스터 예측
   predictCluster: async (surveyResult: SurveyResult) => {
     const payload = {
       AGE: surveyResult.ageGroup || "25",
@@ -50,25 +73,31 @@ export const mlApi = {
       Q_EDU: surveyResult.hasEdu || "No",
       Q_HEALTH: surveyResult.hasHealth || "No",
     };
-
-    // ML 서버는 별도 주소이므로 axios 직접 사용 (또는 별도 client 생성 가능)
+    
     const response = await axios.post<PredictionResponse>(`${ML_BASE_URL}/predict`, payload);
     return response.data;
   },
 
-  // ML 서버로 피드백 전송
+  // 2. ML 서버: 피드백 전송
   sendFeedback: async (payload: FeedbackPayload) => {
     await axios.post(`${ML_BASE_URL}/feedback`, payload);
   },
 
-  // 백엔드(Agent)로 최종 결과 전송 및 추천 카드 요청
-  saveUserPreference: async (data: {
-    cluster_id: number;
-    preferred_categories: string[];
-    timestamp: string;
-  }) => {
-    // 메인 백엔드 API 호출 (api 인스턴스 사용)
-    const response = await client.post('/users/preferences', data);
-    return response.data;
-  }
+  // 3. 메인 백엔드 (Agent 연동): 사용자 선호도 저장 및 카드 추천 요청
+    saveUserPreference: async (data: {
+        cluster_id: number;
+        preferred_categories: string[];
+        timestamp: string;
+    }) => {
+        
+        // [수정: AgentResponse 타입을 사용]
+        const response = await axios.post<AgentResponse>(
+            `${AGENT_BASE_URL}/api/ml/preferences`, 
+            data
+        );
+        
+         // Agent 서버의 응답 (response.data) 내부에서 'recommendation' 키를 추출
+         // 이제 'recommendation'이 AgentResponse 타입에 정의되어 있어 오류가 해결됩니다.
+         return response.data.recommendation; // 반환 타입은 RecommendationResult
+    }
 };
