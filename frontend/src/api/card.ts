@@ -1,39 +1,50 @@
 import { client } from './client';
 
+export interface CardBenefit {
+  benefit_id: number;
+  category: string;
+  summary: string;
+  detail: any;
+}
+
 export interface CardMaster {
   card_id: number;
   card_name: string;
   card_img_url?: string;
+  institution_name?: string; // 추가 필드
 }
 
 export const cardApi = {
-  // 내 카드 목록 조회 (useCardStore에서 사용)
+  // 내 카드(자산) 목록 조회
   getMyCards: async () => {
-    const response = await client.get('/assets/');
+    const response = await client.get<CardMaster[]>('/assets/');
     return response.data;
   },
-
-  // 카드 삭제
-  deleteCard: async (assetId: number) => {
-    await client.delete(`/assets/${assetId}`);
-  },
-
-  // 마이데이터 연동 (LinkMyData.tsx)
-  linkMyData: async (companies: string[]) => {
-    const response = await client.post('/assets/link', { companies });
-    return response.data;
-  },
-
-  // 카드 상품 목록 조회 (RegisterCards.tsx)
-  getCardProducts: async (companyName: string) => {
-    const response = await client.get(`/assets/products?company=${companyName}`);
-    return response.data;
-  },
-  // [추가] 카드 전체 목록 조회 (SpendingDetail에서 카드 이름 매핑용)
+  
+  // 전체 카드 목록 조회
   getAllCards: async () => {
-    // 내 카드(자산) 목록 조회
-    // 백엔드 엔드포인트: /api/v1/assets/
-    const response = await client.get<CardMaster[]>('/assets');
+    const response = await client.get<CardMaster[]>('/assets/');
     return response.data;
   },
+
+  // [신규] 카드 상세 정보 조회
+  // 백엔드에 상세 조회 API(/assets/{id})가 있다면 그걸 쓰고, 없다면 목록에서 찾습니다.
+  // 여기서는 안전하게 목록을 가져와서 찾는 방식으로 구현합니다.
+  getCardDetail: async (cardId: string) => {
+    // 1. 만약 백엔드에 상세 API가 있다면:
+    // const response = await client.get<CardMaster>(`/assets/${cardId}`);
+    // return response.data;
+
+    // 2. 현재 백엔드 구조상 목록에서 필터링:
+    const response = await client.get<CardMaster[]>('/assets/');
+    const card = response.data.find(c => 
+      c.card_id.toString() === cardId || 
+      c.card_name === cardId // 이름으로 검색하는 경우 대비
+    );
+    
+    if (!card) {
+      throw new Error("Card not found");
+    }
+    return card;
+  }
 };

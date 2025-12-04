@@ -17,18 +17,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-  AlertDialogCancel, // Import 추가
+  AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input'; 
 import { Label } from '@/components/ui/label'; 
 import { cn } from '@/lib/utils';
-import { fetchWithAuth } from '@/lib/api';
 import { useCardStore } from '@/store/useCardStore';
 import { useToast } from '@/hooks/use-toast';
-import RewardCelebration from '@/components/RewardCelebration'; // 추가
+import RewardCelebration from '@/components/RewardCelebration';
 
+// [Hook 임포트] 결제 처리 로직
+import { usePaymentProcess } from '@/hooks/usePayment';
 
-// [기존 코드 동일]
+// [핵심] 환경변수에서 이미지 기본 경로 가져오기 (없으면 '/images' 사용)
+const IMAGE_BASE_URL = import.meta.env.VITE_IMAGE_BASE_URL || '/images';
+
+// [핵심] 이미지 경로 완성 함수
+const getImageUrl = (filename?: string) => {
+  if (!filename) return '/placeholder.svg'; 
+  if (filename.startsWith('http') || filename.startsWith('data:')) return filename; 
+  
+  const base = IMAGE_BASE_URL.endsWith('/') ? IMAGE_BASE_URL.slice(0, -1) : IMAGE_BASE_URL;
+  const file = filename.startsWith('/') ? filename.slice(1) : filename;
+  
+  return `${base}/${file}`;
+};
+
+// [컴포넌트] 로그 추가된 AutoOrientedCardImage
 const AutoOrientedCardImage = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
   const [isPortrait, setIsLandscape] = useState(false);
 
@@ -51,6 +66,10 @@ const AutoOrientedCardImage = ({ src, alt, className }: { src: string, alt: stri
           ? "-rotate-90 scale-[1.6] object-contain" 
           : "object-cover"
       )}
+      onError={(e) => { 
+        // console.error(`[Image Error] Failed to load: ${src}`);
+        e.currentTarget.src = '/placeholder.svg'; 
+      }}
     />
   );
 };
@@ -77,6 +96,9 @@ const VerticalCardImage = ({ src, alt, className }: { src: string, alt: string, 
           ? "-rotate-90 scale-[1.6] object-contain" 
           : "object-cover"
       )}
+      onError={(e) => { 
+        e.currentTarget.src = '/placeholder.svg'; 
+      }}
     />
   );
 };
@@ -88,13 +110,14 @@ const Wallet = () => {
   const { toast } = useToast();
   
   const { assets, fetchAssets, isLoading } = useCardStore();
-  
+  const { mutateAsync: processPayment } = usePaymentProcess();
+
   const [api, setApi] = useState<CarouselApi>();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'activating' | 'activated'>('idle');
 
-  // 추가: RewardCelebration 상태
+  // RewardCelebration 상태
   const [showReward, setShowReward] = useState(false);
   const [rewardData, setRewardData] = useState({
     savingsAmount: 0,
@@ -106,25 +129,37 @@ const Wallet = () => {
   const benefitId = incomingPayment?.benefit_id;
   const discountAmount = incomingPayment?.discount_amount;
   
-  // [핵심] 자동 결제 여부 판단 (혜택 정보가 있으면 자동 결제)
   const isAutoPay = !!(benefitId && discountAmount);
 
   const [merchant, setMerchant] = useState<string>(incomingPayment?.merchant || '');
   const [amount, setAmount] = useState<string>(incomingPayment?.amount ? String(incomingPayment.amount) : '');
-  const [benefitAmount, setBenefitAmount] = useState<string>('');
 
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
 
+  // [데이터 매핑] 여기가 핵심입니다!
   const carouselItems = [
-    ...assets.map(asset => ({
-      id: asset.asset_id.toString(),
-      name: asset.external_account_name || asset.institution_name,
-      cardImage: asset.card_image_url || 'http://localhost:8080/placeholder.svg',
-      type: 'card',
-      originalAsset: asset
-    })),
+    ...assets.map(asset => {
+      // 1. 백엔드에서 이미지 파일명을 줬으면 그걸 씀
+      // 2. 안 줬으면(null이면) ID + 'card.png'로 추측해서 만듦
+      // (jpg, gif 등 확장자가 다양하면 백엔드에서 파일명을 주는 게 제일 좋지만, 일단 png로 시도)
+      const filename = asset.card_image_url 
+        ? asset.card_image_url 
+        : `${asset.external_account_id}card.png`;
+
+      const finalUrl = getImageUrl(filename);
+      
+      // console.log(`[Image Check] ID:${asset.external_account_id} -> ${finalUrl}`);
+      
+      return {
+        id: asset.asset_id.toString(),
+        name: asset.external_account_name || asset.institution_name,
+        cardImage: finalUrl,
+        type: 'card',
+        originalAsset: asset
+      };
+    }),
     { id: 'add', name: '카드 추가', cardImage: '', type: 'add', originalAsset: null }
   ];
 
@@ -156,9 +191,6 @@ const Wallet = () => {
       if (location.state?.payment) {
           setMerchant(location.state.payment.merchant);
           setAmount(String(location.state.payment.amount));
-          if (location.state.payment.discount_amount) {
-              setBenefitAmount(String(location.state.payment.discount_amount));
-          }
           setIsModalOpen(true); 
       }
     } else {
@@ -174,7 +206,7 @@ const Wallet = () => {
 
   const handlePayment = async () => {   
     const currentItem = carouselItems[activeIndex];
-    if (!currentItem?.originalAsset) return; // Optional chaining 추가
+    if (!currentItem?.originalAsset) return;
 
     const hasIncomingBenefit = incomingPayment?.benefit_id && incomingPayment?.discount_amount;
 
@@ -188,69 +220,37 @@ const Wallet = () => {
     setPaymentStatus('activating'); 
 
     try {
-        const response = await fetchWithAuth('http://localhost:8000/api/transactions/pay', {
-            method: 'POST',
-            body: JSON.stringify({
+        const result = await processPayment({
+            paymentData: {
                 user_asset_id: currentItem.originalAsset.asset_id,
                 amount: parseInt(amount),
                 merchant_name: merchant,
                 benefit_id: benefitId,
                 discount_amount: discountAmount
-            })
+            },
+            benefitData: hasIncomingBenefit ? {
+                benefitId: benefitId,
+                discountAmount: discountAmount
+            } : undefined
         });
 
-        if (!response.ok) throw new Error('승인 거절');
-
-        const result = await response.json();
-        
-        
-        const token = localStorage.getItem('token');
-        
-        const point_earn_response = await fetch('http://127.0.0.1:8000/api/points/earn', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            benefit_id: benefitId,
-            amount: discountAmount,
-            description: merchant
-          })
-        });
-        
-        const data = await point_earn_response.json();
-        console.log('적립 결과:', data);
-      
-        const get_point_response = await fetch('http://127.0.0.1:8000/api/points/balance', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        const point_data = await get_point_response.json();
-    
-        setTimeout( async() => {
+        setTimeout(() => {
             setPaymentStatus('activated');
             toast({
                 title: "결제 성공",
-                description: `${result.merchant}에서 ${result.amount.toLocaleString()}원 결제되었습니다.`
+                description: `${result.payResult.merchant}에서 ${result.payResult.amount.toLocaleString()}원 결제되었습니다.`
             });
 
-            // 수정: RewardCelebration 데이터 설정 및 표시
             setTimeout(() => {
                 setPaymentStatus('idle');
                 setIsModalOpen(false);
                 
-                // RewardCelebration에 전달할 데이터 설정
                 setRewardData({
-                    savingsAmount: discountAmount || parseInt(amount) * 0.1, // API에서 할인 금액 받거나 임시로 10%
-                    totalPoint: point_data.total_point || 0, // API에서 총 적립 포인트 받기
-                    usageCount: point_data.earn_count || 0 // API에서 사용 횟수 받기
+                    savingsAmount: discountAmount || parseInt(amount) * 0.1, 
+                    totalPoint: result.balanceResult?.total_point || 0,
+                    usageCount: result.balanceResult?.earn_count || 0
                 });
                 
-                // RewardCelebration 표시
                 setShowReward(true);
                 
                 setMerchant('');
@@ -270,14 +270,11 @@ const Wallet = () => {
     }
   };
 
-  // [수정] 딜레이(setTimeout) 없이 바로 결제 실행
   useEffect(() => {
-    // 모달이 열려있고, 결제 대기(idle) 상태이며, 자동 결제 조건(isAutoPay)이 충족되면
     if (isModalOpen && paymentStatus === 'idle' && isAutoPay && amount && merchant) {
         handlePayment(); 
     }
   }, [isModalOpen, paymentStatus, isAutoPay, amount, merchant]); 
-  // handlePayment는 의존성 배열에서 제외 (무한루프 방지 혹은 useCallback 필요, 여기선 생략해도 무방)
 
   const onModalOpenChange = (open: boolean) => {
     if (!open) {
@@ -313,7 +310,7 @@ const Wallet = () => {
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative">
-      {/* 추가: RewardCelebration */}
+      {/* RewardCelebration */}
       {showReward && (
         <RewardCelebration
           savingsAmount={rewardData.savingsAmount}
@@ -335,7 +332,6 @@ const Wallet = () => {
         </Button>
       </div>
 
-      {/* 나머지 코드 동일... */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 space-y-8 overflow-hidden">
         {isLoading ? (
             <div className="flex flex-col items-center animate-pulse">
@@ -359,7 +355,7 @@ const Wallet = () => {
                 ) : (
                   <div className="p-1 cursor-pointer active:scale-95 transition-transform" onClick={() => handleCardImageClick(card)}>
                     <Card className="shadow-elevated overflow-hidden rounded-lg bg-white flex items-center justify-center pointer-events-none" style={{ aspectRatio: '85.6 / 53.98' }}>
-                       <AutoOrientedCardImage src={card.cardImage} alt={card.name} className="w-full h-full" />
+                        <AutoOrientedCardImage src={card.cardImage} alt={card.name} className="w-full h-full" />
                     </Card>
                   </div>
                 )}
@@ -394,7 +390,6 @@ const Wallet = () => {
                 
                 <AlertDialogContent className="max-w-[320px] rounded-2xl">
                 
-                {/* [핵심 수정] isAutoPay가 false일 때만 입력창(idle)을 보여줌 */}
                 {paymentStatus === 'idle' && !isAutoPay && (
                     <>
                     <AlertDialogHeader>
@@ -436,13 +431,11 @@ const Wallet = () => {
                     </>
                 )}
                 
-                {/* [핵심 수정] activating/activated 상태이거나, idle이어도 isAutoPay가 true면 애니메이션 화면 노출 */}
                 {(paymentStatus === 'activating' || paymentStatus === 'activated' || (paymentStatus === 'idle' && isAutoPay)) && (
                     <div className="flex flex-col items-center justify-center min-h-[300px] space-y-6 perspective-1000">
                     <div 
                         className={cn(
                         "relative w-32 rounded-lg shadow-2xl transform-style-3d transition-all duration-700",
-                        // activating이거나 (자동결제인데 idle인 경우) 카드를 세움
                         (paymentStatus === 'activating' || (paymentStatus === 'idle' && isAutoPay)) && "animate-card-stand-up", 
                         paymentStatus === 'activated' && "scale-110 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]"
                         )}
@@ -455,7 +448,6 @@ const Wallet = () => {
                         />
                     </div>
 
-                    {/* activating이거나 (자동결제인데 idle인 경우) 로딩 텍스트 표시 */}
                     {(paymentStatus === 'activating' || (paymentStatus === 'idle' && isAutoPay)) && (
                         <div className="flex flex-col items-center space-y-2 text-muted-foreground animate-pulse">
                         <Loader2 className="w-6 h-6 animate-spin text-primary" />
