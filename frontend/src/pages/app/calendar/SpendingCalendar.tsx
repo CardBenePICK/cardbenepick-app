@@ -17,22 +17,74 @@ import { cn } from '@/lib/utils';
 import { useMonthlyTransactions } from '@/hooks/useAnalysis';
 import { Transaction } from '@/api/analysis';
 
-// --- 아이콘 매핑 ---
+// // --- 아이콘 매핑 ---
+// const getCategoryIcon = (merchantName: string) => {
+//   const name = merchantName.toLowerCase();
+//   // 아이콘 스타일을 조금 더 심플하게 변경 (구분선 스타일에 맞춤)
+//   const style = "w-5 h-5 text-white";
+  
+//   if (name.includes('스타벅스') || name.includes('카페')) return <div className="bg-green-500 p-2.5 rounded-full shadow-sm"><Coffee className={style} /></div>;
+//   if (name.includes('편의점') || name.includes('마트')) return <div className="bg-blue-500 p-2.5 rounded-full shadow-sm"><ShoppingCart className={style} /></div>;
+//   if (name.includes('택시') || name.includes('교통') || name.includes('지하철')) return <div className="bg-yellow-500 p-2.5 rounded-full shadow-sm"><Bus className={style} /></div>;
+//   if (name.includes('주유')) return <div className="bg-slate-600 p-2.5 rounded-full shadow-sm"><Fuel className={style} /></div>;
+//   if (name.includes('식당') || name.includes('음식') || name.includes('버거')) return <div className="bg-orange-500 p-2.5 rounded-full shadow-sm"><Utensils className={style} /></div>;
+//   if (name.includes('통신')) return <div className="bg-purple-500 p-2.5 rounded-full shadow-sm"><Smartphone className={style} /></div>;
+//   if (name.includes('넷플릭스') || name.includes('영화')) return <div className="bg-red-500 p-2.5 rounded-full shadow-sm"><Ticket className={style} /></div>;
+  
+//   return <div className="bg-gray-400 p-2.5 rounded-full shadow-sm"><ShoppingBag className={style} /></div>;
+// };
+
+// --- 아이콘 매핑 (다채로운 파스텔 톤 적용) ---
 const getCategoryIcon = (merchantName: string) => {
   const name = merchantName.toLowerCase();
-  // 아이콘 스타일을 조금 더 심플하게 변경 (구분선 스타일에 맞춤)
-  const style = "w-5 h-5 text-white";
+  const iconClass = "w-4 h-4 text-white"; 
+
+  // 1. 카페/베이커리 -> Pale Green (#A5D6A7) or Warm Brown (#BCAAA4)
+  if (name.includes('스타벅스') || name.includes('카페') || name.includes('투썸') || name.includes('커피')) {
+    return <div className="bg-[#A5D6A7] p-2 rounded-full"><Coffee className={iconClass} /></div>;
+  }
+  if (name.includes('파리바게뜨') || name.includes('뚜레쥬르') || name.includes('베이커리')) {
+    return <div className="bg-[#BCAAA4] p-2 rounded-full"><Coffee className={iconClass} /></div>;
+  }
+
+  // 2. 쇼핑/마트/편의점 -> Cyan Blue (#80DEEA) or Lavender Purple (#CE93D8)
+  if (name.includes('편의점') || name.includes('gs25') || name.includes('cu') || name.includes('세븐일레븐')) {
+    return <div className="bg-[#80DEEA] p-2 rounded-full"><ShoppingCart className={iconClass} /></div>;
+  }
+  if (name.includes('마트') || name.includes('이마트') || name.includes('홈플러스')) {
+     return <div className="bg-[#80DEEA] p-2 rounded-full"><ShoppingCart className={iconClass} /></div>;
+  }
+  if (name.includes('백화점') || name.includes('아울렛') || name.includes('쇼핑')) {
+    return <div className="bg-[#CE93D8] p-2 rounded-full"><ShoppingBag className={iconClass} /></div>;
+  }
+
+  // 3. 교통/주유 -> Sunshine Yellow (#FFEE58) or Cool Grey (#90A4AE)
+  if (name.includes('택시') || name.includes('버스') || name.includes('지하철') || name.includes('코레일')) {
+    return <div className="bg-[#FFD54F] p-2 rounded-full"><Bus className={iconClass} /></div>;
+  }
+  if (name.includes('주유') || name.includes('oil') || name.includes('gs칼텍스')) {
+    return <div className="bg-[#90A4AE] p-2 rounded-full"><Fuel className={iconClass} /></div>;
+  }
+
+  // 4. 식사 -> Mellow Orange (#FFD180)
+  if (name.includes('식당') || name.includes('음식') || name.includes('버거') || name.includes('치킨') || name.includes('피자')) {
+    return <div className="bg-[#FFCC80] p-2 rounded-full"><Utensils className={iconClass} /></div>;
+  }
+
+  // 5. 통신/구독 -> Sky Blue (#90CAF9)
+  if (name.includes('통신') || name.includes('skt') || name.includes('kt') || name.includes('lgu+')) {
+    return <div className="bg-[#90CAF9] p-2 rounded-full"><Smartphone className={iconClass} /></div>;
+  }
+
+  // 6. 문화/엔터 -> Soft Coral (#FF8A80)
+  if (name.includes('넷플릭스') || name.includes('영화') || name.includes('cgv') || name.includes('롯데시네마')) {
+    return <div className="bg-[#FF8A80] p-2 rounded-full"><Ticket className={iconClass} /></div>;
+  }
   
-  if (name.includes('스타벅스') || name.includes('카페')) return <div className="bg-green-500 p-2.5 rounded-full shadow-sm"><Coffee className={style} /></div>;
-  if (name.includes('편의점') || name.includes('마트')) return <div className="bg-blue-500 p-2.5 rounded-full shadow-sm"><ShoppingCart className={style} /></div>;
-  if (name.includes('택시') || name.includes('교통') || name.includes('지하철')) return <div className="bg-yellow-500 p-2.5 rounded-full shadow-sm"><Bus className={style} /></div>;
-  if (name.includes('주유')) return <div className="bg-slate-600 p-2.5 rounded-full shadow-sm"><Fuel className={style} /></div>;
-  if (name.includes('식당') || name.includes('음식') || name.includes('버거')) return <div className="bg-orange-500 p-2.5 rounded-full shadow-sm"><Utensils className={style} /></div>;
-  if (name.includes('통신')) return <div className="bg-purple-500 p-2.5 rounded-full shadow-sm"><Smartphone className={style} /></div>;
-  if (name.includes('넷플릭스') || name.includes('영화')) return <div className="bg-red-500 p-2.5 rounded-full shadow-sm"><Ticket className={style} /></div>;
-  
-  return <div className="bg-gray-400 p-2.5 rounded-full shadow-sm"><ShoppingBag className={style} /></div>;
+  // 기본 -> Cool Grey (#B0BEC5)
+  return <div className="bg-[#B0BEC5] p-2 rounded-full"><ShoppingBag className={iconClass} /></div>;
 };
+
 
 // --- 요일 텍스트 ---
 const getDayKo = (dateStr: string) => {
