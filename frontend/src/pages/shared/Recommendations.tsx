@@ -141,7 +141,7 @@ const Recommendations = () => {
       
       {/* Header */}
       <div className="bg-white sticky top-0 z-10 px-4 h-14 flex items-center border-b border-gray-100">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/survey')} className="mr-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/app/chat')} className="mr-2">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="font-bold text-lg">추천 결과</h1>
