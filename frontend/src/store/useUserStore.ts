@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+import { useCardStore } from './useCardStore';
 // (신규) 로그인 상태 및 유저 정보
 // - user (이름, 폰번호 등)
 // - accessToken    
@@ -11,7 +12,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 // frontend/src/store/useUserStore.ts
 
-interface User {
+export interface User {
   user_id: number;
   user_name: string;
   phone_number: string;
@@ -21,7 +22,7 @@ interface User {
   status?: string;
 }
 
-interface UserState {
+export interface UserState {
   isLoggedIn: boolean;
   token: string | null;
   user: User | null;
@@ -45,6 +46,10 @@ export const useUserStore = create<UserState>()(
       },
 
       logout: () => {
+        // [핵심 수정] 1. 다른 스토어의 데이터 정리
+        // getState()를 사용하여 useCardStore의 현재 상태와 액션에 접근합니다.
+        useCardStore.getState().clearAssets();
+
         localStorage.removeItem('token');
         set({ isLoggedIn: false, token: null, user: null });
       },

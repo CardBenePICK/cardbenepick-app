@@ -1,14 +1,14 @@
 from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, SQLModel 
-
+from app.db import session
 from app.api import deps
 from app.core.security import get_current_user_payload
 from app.services.data_loader import load_mock_data
 from app.schemas.response import AssetResponse 
 # [수정] BenefitSum 모델 임포트 추가
 from app.db.models import UserAsset, CardTransaction, CardMaster, AssetType, CardBenefit, BenefitSum
-import app.core.config as config
+import app.core.config as settings
 import urllib.parse 
 
 router = APIRouter()
@@ -200,29 +200,41 @@ def register_card(
 # 3. 내 자산 조회
 # -------------------------------------------------------------------
 @router.get("/", response_model=List[AssetResponse])
-def read_my_assets(
+def read_assets(
     db: Session = Depends(deps.get_db),
-    payload: dict = Depends(get_current_user_payload)
-):
-    user_id = payload.get("user_id")
+    current_user: Any = Depends(get_current_user_payload),
+) -> Any:
+    """
+    내 자산(카드) 목록 조회
+    """
+    # [수정] current_user가 dict인지 객체인지 확인하여 user_id 추출
+    user_id = None
     
-    assets = db.exec(
-        select(UserAsset).where(UserAsset.user_id == user_id)
-    ).all()
-    
-    response_list = []
-    
-    for asset in assets:
-        asset_res = AssetResponse.model_validate(asset)
-        if asset.external_account_id:
-             asset_res.card_image_url = f"{config.IMAGE_BASE_URL}/{asset.external_account_id}card.png"
-        else:
-             asset_res.card_image_url = f"{config.IMAGE_BASE_URL}/placeholder.svg"
-        
-        response_list.append(asset_res)
-    
-    return response_list
+    if isinstance(current_user, dict):
+        print(f"DEBUG: current_user is a dict: {current_user}")
+        user_id = current_user.get("user_id") or current_user.get("id") or current_user.get("sub")
+    else:
+        print(f"DEBUG: current_user is an object: {current_user}")
+        user_id = getattr(current_user, "user_id", None) or getattr(current_user, "id", None)
 
+    print(f"DEBUG: Extracted user_id: {user_id}")
+
+    if user_id is None:
+        raise HTTPException(status_code=500, detail="Could not retrieve user_id from current_user")
+
+    try:
+        # DB에서 현재 사용자의 자산 조회
+        statement = select(UserAsset).where(UserAsset.user_id == user_id)
+        assets = db.exec(statement).all()
+        
+        # 데이터가 없으면 빈 리스트 반환
+        return assets
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"Error fetching assets: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+    
 # -------------------------------------------------------------------
 # 4. 기타 기능 (연동, 삭제)
 # -------------------------------------------------------------------

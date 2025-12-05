@@ -48,9 +48,6 @@ class UserPreferenceCreate(BaseModel):
     preferred_categories: List[str]
     timestamp: str
 
-# 에이전트 서버 주소 (포트 8090 확인 필수)
-AGENT_SERVER_URL = "http://localhost:8090/api/ml/preferences"
-
 
 @router.get("/me", response_model=UserResponse)
 def read_user_me(
@@ -118,16 +115,19 @@ def delete_user_me(
 
 # [수정] 결과를 반환하도록 변경된 전송 함수
 async def send_to_agent(payload: dict) -> dict:
+    # [변경] settings에서 URL 가져오기
+    agent_url = settings.AGENT_BASE_URL
+    
     async with httpx.AsyncClient() as client:
         try:
-            print(f"🚀 Sending to Agent: {AGENT_SERVER_URL}")
-            # 타임아웃을 넉넉하게 설정 (LLM 생성 시간이 걸릴 수 있음)
-            resp = await client.post(AGENT_SERVER_URL, json=payload, timeout=30.0)
+            print(f"🚀 Sending to Agent: {agent_url}")
+            # 타임아웃을 넉넉하게 설정
+            resp = await client.post(agent_url, json=payload, timeout=30.0)
             
             if resp.status_code == 200:
                 data = resp.json()
-                print(f"✅ Agent Success: {str(data)[:100]}...") # 로그 줄임
-                return data # Agent가 준 추천 결과를 리턴
+                print(f"✅ Agent Success: {str(data)[:100]}...") 
+                return data 
             else:
                 print(f"⚠️ Agent Failed: {resp.text}")
                 return {"error": "Agent server returned error", "details": resp.text}
@@ -135,6 +135,7 @@ async def send_to_agent(payload: dict) -> dict:
         except Exception as e:
             print(f"❌ Connection Error: {e}")
             return {"error": "Failed to connect to Agent server", "details": str(e)}
+
 
 @router.post("/preferences")
 async def receive_user_preferences(

@@ -22,8 +22,9 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-// [추가] Store 임포트
+// [추가] Store, Hook 임포트
 import { useUserStore } from '@/store/useUserStore';
+import { useRegisterMutation } from '@/hooks/useAuthQueries';
 
 const genderOptions = [
   { value: "M", label: "남성" },
@@ -35,15 +36,19 @@ const Register = () => {
   const location = useLocation();
   const { toast } = useToast();
   
+  // [변경] useRegisterMutation 훅 사용
+  // mutate: 실행 함수, isPending: 로딩 상태
+  const { mutate: register, isPending } = useRegisterMutation();
+
   // [추가] Store Actions
-  const { login } = useUserStore();
+  // const { login } = useUserStore();
 
   const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState<Date | undefined>(undefined);
   const [gender, setGender] = useState('');
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  // const [isLoading, setIsLoading] = useState(false);
 
   const telecom = location.state?.telecom;
 
@@ -58,71 +63,32 @@ const Register = () => {
     }
   }, [telecom, navigate, toast]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 1. 유효성 검사
     if (!name.trim() || !birthDate || !gender || !agreedTerms || !agreedPrivacy) {
       toast({ title: "오류", description: "모든 정보를 입력하고 약관에 동의해주세요.", variant: "destructive" });
       return;
     }
 
+    // 2. 임시 토큰 확인
     const tempToken = localStorage.getItem('token');
     if (!tempToken) {
       toast({ title: "인증 오류", description: "인증 세션이 만료되었습니다.", variant: "destructive" });
       navigate('/login');
       return;
     }
-    
-    setIsLoading(true);
 
-    try {
-      const response = await fetch('http://localhost:8000/api/auth/complete-registration', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tempToken}`
-        },
-        body: JSON.stringify({
-          name: name,
-          telecom: telecom,
-          birth_date: format(birthDate, "yyyy-MM-dd"),
-          gender: gender,
-          agreed_terms: agreedTerms,
-          agreed_privacy: agreedPrivacy
-        })
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.json();
-        throw new Error(errorText.detail || '회원가입에 실패했습니다.');
-      }
-
-      const data = await response.json();
-      const accessToken = data.access_token;
-
-      // [수정] 회원가입 성공 후 바로 내 정보 조회 및 로그인 처리
-      const userResponse = await fetch('http://localhost:8000/api/users/me', {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
-
-      if (userResponse.ok) {
-          const userData = await userResponse.json();
-          
-          // Store 업데이트
-          login(accessToken, userData);
-          
-          toast({ title: "회원가입 성공", description: "CardBenePICK에 오신 것을 환영합니다!" });
-          navigate('/link-mydata');
-      } else {
-          throw new Error("회원 정보를 불러오는데 실패했습니다.");
-      }
-
-    } catch (error: any) {
-      console.error(error);
-      toast({ title: "오류", description: error.message || "서버 오류", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
+    // 3. 회원가입 훅 실행 (API 호출)
+    register({
+      name,
+      telecom,
+      birthDate,
+      gender,
+      agreedTerms,
+      agreedPrivacy
+    });
   };
 
   return (
@@ -247,9 +213,11 @@ const Register = () => {
             <Button 
               type="submit"
               className="w-full btn-gradient h-11"
-              disabled={isLoading || !agreedTerms || !agreedPrivacy || !name || !telecom || !birthDate || !gender}
+              // [수정] isLoading -> isPending 으로 변경
+              disabled={isPending || !agreedTerms || !agreedPrivacy || !name || !telecom || !birthDate || !gender}
             >
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '가입 완료'}
+              {/* [수정] isLoading -> isPending 으로 변경 */}
+              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : '가입 완료'}
             </Button>
           </CardContent>
         </Card>

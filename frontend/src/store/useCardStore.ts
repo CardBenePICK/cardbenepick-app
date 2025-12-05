@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { fetchWithAuth } from '@/lib/api'; // API 유틸리티 임포트
-
+// import { fetchWithAuth } from '@/lib/api'; // API 유틸리티 임포트
+import { cardApi } from '@/api/card';
 export interface Asset {
   asset_id: number;
   institution_name: string;
@@ -29,10 +29,9 @@ export const useCardStore = create<CardState>((set) => ({
   fetchAssets: async () => {
     set({ isLoading: true, error: null });
     try {
-      // [수정 1] fetchWithAuth 사용 & 포트 8000으로 변경
-      const response = await fetchWithAuth('http://localhost:8000/api/assets/');
+      // [수정 1: fetchWithAuth -> cardApi.getMyCards]
+      const data = await cardApi.getMyCards(); 
       
-      const data = await response.json();
       set({ assets: data });
     } catch (error: any) {
       console.error(error);

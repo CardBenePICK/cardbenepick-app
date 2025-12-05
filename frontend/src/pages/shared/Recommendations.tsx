@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, CreditCard, Users, Star, Loader2, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api';
+import AutoOrientedCardImage from '@/components/AutoOrientedCardImage';  // AutoOrientedCardImage 컴포넌트 임포트
 
 // 카드 데이터 타입
 interface CardAsset {
@@ -141,7 +142,7 @@ const Recommendations = () => {
       
       {/* Header */}
       <div className="bg-white sticky top-0 z-10 px-4 h-14 flex items-center border-b border-gray-100">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/survey')} className="mr-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/app/chat')} className="mr-2">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="font-bold text-lg">추천 결과</h1>
@@ -150,9 +151,9 @@ const Recommendations = () => {
       <div className="p-6 space-y-6 overflow-y-auto pb-24">
 
         {/* 회원가입 유도 */}
-        <Button className="w-full btn-gradient h-11 text-white font-bold shadow-md" onClick={() => navigate('/login')}>
+        {/* <Button className="w-full btn-gradient h-11 text-white font-bold shadow-md" onClick={() => navigate('/login')}>
           가입하고 내 카드 관리하기
-        </Button>
+        </Button> */}
 
         {/* 사용자 그룹 정보 */}
         <Card className="shadow-sm border-gray-200 bg-white">
@@ -205,49 +206,28 @@ const Recommendations = () => {
           </h2>
           
           {cards.map((card, index) => (
-            <Card 
-                key={card.id || index} 
-                className="shadow-sm border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 transition-all active:scale-[0.98]"
-            > 
-              <CardContent className="p-0 flex"> 
-                {/* [수정] 이미지 영역: ID 기반으로 이미지 로드 */}
-                  <div className="w-24 bg-gray-50 flex items-center justify-center p-2 border-r border-gray-100 relative">
-                      <img 
-                        src={getCardImagePath(card.id)} 
-                        alt={card.name} 
-                        className="w-full h-auto object-contain max-h-16"
-                        onError={(e) => {
-                            // 이미지가 없거나 로드 실패 시 아이콘으로 대체
-                            e.currentTarget.style.display = 'none';
-                            e.currentTarget.parentElement?.classList.add('fallback-icon');
-                        }}
-                      />
-                      {/* 이미지 로드 실패 시 보여줄 아이콘 (CSS로 제어하거나 상태관리도 가능하지만 간편하게 처리) */}
-                      <CreditCard className="w-8 h-8 text-gray-300 absolute hidden fallback-show" />
-                      <style>{`
-                        .fallback-icon .fallback-show { display: block !important; }
-                      `}</style>
-                  </div>
+            <Card key={card.id || index} className="shadow-sm border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 transition-all active:scale-[0.98] ">
+              <CardContent className="p-0 flex">
+                <div className="w-24 bg-gray-50 flex items-center justify-center p-2 border-r border-gray-100 relative">
+                  {/* AutoOrientedCardImage 사용 */}
+                  <AutoOrientedCardImage 
+                    src={getCardImagePath(card.id)} 
+                    alt={card.name} 
+                    className="w-full h-full" 
+                  />
+                </div>
 
-                {/* 정보 영역 */}
                 <div className="flex-1 p-4 flex flex-col justify-center">
-                    <div className="flex justify-between items-start mb-1">
-                        <span className="text-xs text-gray-400 font-medium">{card.company}</span>
-                        {index === 0 && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 text-[10px] px-1.5 h-5">BEST</Badge>}
-                    </div>
-                    <h4 className="font-bold text-gray-900 text-base mb-1">{card.name}</h4>
-                    
-                    {/* RAG 추천 사유가 있으면 표시 */}
-                    {card.reason && (
-                        <p className="text-xs text-blue-600 mb-2 line-clamp-2">
-                            💡 {card.reason}
-                        </p>
-                    )}
-                    
-                    <div className="flex items-center gap-1">
-                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                        <span className="text-xs text-gray-500">매칭 점수 {98 - (index * 5)}점</span>
-                    </div>
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-xs text-gray-400 font-medium">{card.company}</span>
+                    {index === 0 && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 text-[10px] px-1.5 h-5">BEST</Badge>}
+                  </div>
+                  <h4 className="font-bold text-gray-900 text-base mb-1">{card.name}</h4>
+                  {card.reason && <p className="text-xs text-blue-600 mb-2 line-clamp-2">💡 {card.reason}</p>}
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                    <span className="text-xs text-gray-500">매칭 점수 {98 - (index * 5)}점</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
