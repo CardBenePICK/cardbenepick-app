@@ -55,10 +55,6 @@ const SurveyComplete = () => {
     // 2. 최종 결과 합치기
     const finalResult = useMemo(() => {
         if (isMyDataFlow) {
-            useEffect(() => {
-                // candidates를 콘솔에 찍기
-                console.log("Candidates:", myDataHooks.candidates);
-            }, [myDataHooks.candidates]);  // candidates가 변경될 때마다 로그를 찍음
             // MyData 플로우: myDataHooks의 결과를 사용
             return {
                 // user 정보 로드 중이면 로딩 상태로 처리
@@ -84,6 +80,11 @@ const SurveyComplete = () => {
             };
         }
     }, [isMyDataFlow, isUserIdValid, isUserLoaded, coldStartHooks, myDataHooks]);
+
+    useEffect(() => {
+                // candidates를 콘솔에 찍기
+                console.log("Candidates:", myDataHooks.candidates);
+            }, [myDataHooks.candidates]);  // candidates가 변경될 때마다 로그를 찍음
 
     // 3. UI 상태 (Cold Start 및 MyData 피드백 공통)
     const [feedback, setFeedback] = useState<'good' | 'bad' | null>(null);
