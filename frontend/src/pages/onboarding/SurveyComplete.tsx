@@ -53,7 +53,6 @@ const SurveyComplete = () => {
       case 2: return { title: "에듀 맘/대디", eng: "Edu-Focus", emoji: "🎓", desc: "자녀 교육비 지출이 압도적 1위!\n아이의 미래를 위해 아낌없이 투자하시네요.", tag: "자녀교육", colorClass: "text-indigo-600", bgClass: "bg-indigo-50 border-indigo-100" };
       case 3: return { title: "럭셔리 VIP", eng: "Affluent Lifestyle", emoji: "👑", desc: "외식, 여행, 레저까지!\n삶의 질을 높이는 데 아낌없는 여유로운 라이프.", tag: "프리미엄", colorClass: "text-purple-600", bgClass: "bg-purple-50 border-purple-100" };
       case 4: return { title: "마이카 중산층", eng: "Car Owner", emoji: "🚗", desc: "내 차와 함께라면 어디든!\n주유비와 차량 관리에 진심인 오너 드라이버.", tag: "드라이버", colorClass: "text-blue-600", bgClass: "bg-blue-50 border-blue-100" };
-      default: return { title: "스마트 컨슈머", eng: "Smart Consumer", emoji: "🧐", desc: "당신의 소비 패턴을 분석해\n딱 맞는 혜택을 찾아냈어요!", tag: "분석완료", colorClass: "text-gray-600", bgClass: "bg-gray-50 border-gray-100" };
     }
   };
 
