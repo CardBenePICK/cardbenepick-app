@@ -78,6 +78,17 @@ export const mlApi = {
     return response.data;
   },
 
+  // [새로 추가] 1-2. ML 서버: 마이데이터 기반 클러스터 예측
+  predictMydata: async (userId: string | number) => {
+      const payload = { user_id: Number(userId) }; // API는 user_id를 숫자로 기대
+      // POST http://localhost:9000/predict/mydata
+      const response = await axios.post<PredictionResponse>(
+          `${ML_BASE_URL}/predict/mydata`, 
+          payload
+      );
+      return response.data; // PredictionResponse 타입 반환
+  },
+
   // 2. ML 서버: 피드백 전송
   sendFeedback: async (payload: FeedbackPayload) => {
     await axios.post(`${ML_BASE_URL}/feedback`, payload);

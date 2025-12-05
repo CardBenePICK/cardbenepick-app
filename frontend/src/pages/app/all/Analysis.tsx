@@ -52,7 +52,7 @@ const analysisMenuItems = [
       </>
     ),
     icon: Sparkles,
-    link: "/survey", // 설문조사 페이지로 이동
+    link: "/analysis/recommend-type-select", // 설문조사 페이지로 이동
   },
   {
     title: "소비 리포트",

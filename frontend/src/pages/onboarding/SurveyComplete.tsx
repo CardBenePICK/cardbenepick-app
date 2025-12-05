@@ -9,8 +9,10 @@ const SurveyComplete = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const surveyResult = location.state?.surveyResult;
+  const mydataResult = location.state?.mydataResult; 
 
   // Custom Hook 사용 (데이터 로직 분리)
+  // // [수정!] mydataResult를 두 번째 인수로 전달합니다.
   const { 
     loading, 
     error, 

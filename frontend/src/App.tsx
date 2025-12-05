@@ -43,6 +43,7 @@ import CardDetail from "./pages/shared/CardDetail";
 // --- 5. 기타 ---
 import PaymentResultPage from './pages/PaymentResultPage';
 import TestPage from './pages/TestPage';
+import RecommendTypeSelect from "./pages/onboarding/RecommendTypeSelect";
 
 const queryClient = new QueryClient();
 
@@ -61,11 +62,13 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/verify-otp" element={<VerifyOtp />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/survey" element={<Survey />} />
+              <Route path="/survey-complete" element={<SurveyComplete />} />
             </Route>
             <Route element={<ProtectedRoute />}>
               <Route path="/link-mydata" element={<LinkMyData />} />
-              <Route path="/survey" element={<Survey />} />
-              <Route path="/survey-complete" element={<SurveyComplete />} />
+              <Route path="survey/recommend-type-select" element={<RecommendTypeSelect />} />
+
               <Route path="/analysis-loading" element={<AnalysisLoading />} />
               <Route path="/recommendations" element={<Recommendations />} />
 
@@ -83,9 +86,10 @@ const App = () => (
                 <Route path="wallet" element={<Wallet />} />
                 <Route path="wallet/add" element={<RegisterCards />} />
                 <Route path="wallet/verify" element={<VerifyCard />} />
-                
+
                 <Route path="analysis" element={<Analysis />} />
                 <Route path="mypage" element={<MyPage />} />
+
                 <Route path="analysis/detail" element={<SpendingDetail />} />
                 <Route path="analysis/calendar" element={<SpendingCalendar />} />
                 <Route path="performance" element={<CardPerformance />} />
