@@ -105,6 +105,24 @@ export interface SurveyResponse {
   primarySpendingCategory: BenefitCategory;
 }
 
+/**
+ * MyData 예측 요청을 위한 사용자 ID 타입 정의
+ * /ml/predict/mydata 엔드포인트에 전송되는 데이터 구조
+ */
+export interface UserIDRequest {
+    user_id: number;
+}
+
+// React Query Key 정의
+export enum QueryKeys {
+    User = 'user',
+    Auth = 'auth',
+    Cards = 'cards',
+    MLPrediction = 'mlPrediction', // ML 예측 결과를 위한 키 추가
+    Transactions = 'transactions'
+}
+
+
 export interface UserGroup {
   id: string;
   name: string;
@@ -143,3 +161,4 @@ export interface Notification {
   is_read: boolean;
   created_at: string;
 }
+

@@ -57,16 +57,20 @@ const App = () => (
           <Routes>
             {/* [수정] 여기가 빠져 있었습니다! 앱의 대문(루트) 경로 추가 */}
             <Route path="/" element={<Splash />} />
+
+            {/* ★ [핵심 변경] Survey 및 SurveyComplete는 인증과 무관하게 접근 가능하도록 최상위 레벨로 이동 */}
+            <Route path="/survey" element={<Survey />} />
+            <Route path="/survey-complete" element={<SurveyComplete />} />
+
             {/* --- 인증 및 온보딩 --- */}
             <Route element={<PublicRoute />}>
               <Route path="/login" element={<Login />} />
               <Route path="/verify-otp" element={<VerifyOtp />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/survey" element={<Survey />} />
-              <Route path="/survey-complete" element={<SurveyComplete />} />
             </Route>
             <Route element={<ProtectedRoute />}>
               <Route path="/link-mydata" element={<LinkMyData />} />
+              {/* RecommendTypeSelect는 로그인한 사용자만 접근 가능 (분기 페이지) */}
               <Route path="survey/recommend-type-select" element={<RecommendTypeSelect />} />
 
               <Route path="/analysis-loading" element={<AnalysisLoading />} />

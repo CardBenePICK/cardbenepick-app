@@ -1,6 +1,6 @@
 import { client } from './client';
 import axios from 'axios'; // ML/Agent 서버는 별도 인스턴스 또는 axios 직접 사용
-
+import { UserIDRequest } from '@/types'; // UserIDRequest를 types/index.ts에서 가져오도록 수정
 // [환경변수] ML 서버 주소
 const ML_BASE_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:9000';
 const AGENT_BASE_URL = import.meta.env.VITE_AGENT_API_URL || 'http://localhost:8090/agent'; // 필요시 사용
@@ -80,7 +80,12 @@ export const mlApi = {
 
   // [새로 추가] 1-2. ML 서버: 마이데이터 기반 클러스터 예측
   predictMydata: async (userId: string | number) => {
-      const payload = { user_id: Number(userId) }; // API는 user_id를 숫자로 기대
+    const payload: UserIDRequest = { user_id: Number(userId) }; // API는 user_id를 숫자로 기대
+    const url = `${ML_BASE_URL}/predict/mydata`; // ★ 경로 복원 (/ml 제거)
+
+        // ★ 디버깅을 위한 로깅 추가
+        console.log(`[ML API] 📤 MyData Prediction URL: ${url}`);
+        console.log('[ML API] 📤 MyData Prediction Payload:', payload);
       // POST http://localhost:9000/predict/mydata
       const response = await axios.post<PredictionResponse>(
           `${ML_BASE_URL}/predict/mydata`, 

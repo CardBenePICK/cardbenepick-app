@@ -1,97 +1,113 @@
-// CardBenePICK_Web\frontend\src\pages\onboarding\RecommendTypeSelect.tsx
-
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Loader2, ArrowRight, User, MousePointerClick } from 'lucide-react';
-import { useUserStore } from '@/store/useUserStore';
-import { mlApi, SurveyResult } from '@/api/ml'; // SurveyResult import 추가 (pass를 위해)
-import { cn } from '@/lib/utils';
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Database, Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 const RecommendTypeSelect = () => {
     const navigate = useNavigate();
-    const { user } = useUserStore(); // user 정보 (user_id)를 가져옴
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
-    // 마이데이터 추천 요청 핸들러
-    const handleMydataRecommend = async () => {
-        if (!user?.user_id) {
-            setError("사용자 ID를 찾을 수 없습니다. 다시 로그인해 주세요.");
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-        try {
-            const userIdString = String(user.user_id);
-            console.log(`📡 [Mydata] 추천 요청 시작: User ID ${userIdString}`);
-            
-            // [API 호출] ML 서버로 user_id만 전송
-            const result = await mlApi.predictMydata(userIdString);
-
-            console.log("✅ [Mydata] 클러스터 예측 완료:", result);
-
-            // 예측 결과를 SurveyComplete 페이지로 바로 넘깁니다. 
-            // surveyResult는 null로 넘겨서 useML 훅이 설문 로직을 건너뛰게 합니다.
-            navigate('/survey-complete', {
-                state: { 
-                    // surveyResult를 null로 전달하여 useML 훅이 예측 API를 호출하지 않도록 합니다.
-                    surveyResult: null as SurveyResult | null, 
-                    
-                    // 마이데이터 예측 결과를 useML이 사용할 수 있도록 넘깁니다.
-                    mydataResult: result, 
-                }
-            });
-
-        } catch (err) {
-            console.error("❌ [Mydata] 추천 실패:", err);
-            setError("마이데이터 분석에 실패했습니다. 설문조사로 진행해 주세요.");
-            setLoading(false);
-        }
+    // 뒤로 가기 (Analysis 페이지로 돌아감. 라우팅 구조상 -1)
+    const handleBack = () => {
+        navigate(-1);
     };
 
-    const handleSurveySelect = () => {
-        // 설문조사 페이지로 이동
+    // 마이데이터 연동 선택: SurveyComplete로 이동하며 'mydata' 플래그를 state로 전달
+    const handleSelectMyData = () => {
+        // SurveyComplete로 바로 이동하며, 해당 페이지에서 MyData 예측 훅(useMyDataML)이 실행됨
+        navigate('/survey-complete', { state: { predictionType: 'mydata' } });
+    };
+
+    // 설문조사 선택: 기존 설문 페이지로 이동
+    const handleSelectSurvey = () => {
+        // 설문조사 페이지로 이동하여 Cold Start 로직 (useML)을 따릅니다.
         navigate('/survey');
     };
 
     return (
-        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center max-w-[448px] mx-auto">
-            <h1 className="text-2xl font-extrabold text-gray-900 mb-2">
-                어떤 방식으로<br/>카드를 추천받으시겠어요?
-            </h1>
-            <p className="text-sm text-gray-500 mb-10">
-                정확도 높은 추천을 위해 방법을 선택해 주세요.
-            </p>
-
-            {/* --- 옵션 카드 --- */}
-            <div className="w-full space-y-4">
-                {/* 1. 마이데이터 추천 */}
-                <button
-                    onClick={handleMydataRecommend}
-                    disabled={loading}
-                    className={cn(
-                        "w-full p-6 rounded-2xl border-2 transition-all duration-200",
-                        loading ? "bg-gray-100 border-gray-300" : "bg-blue-50 border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.99]"
-                    )}
+        <div className="app-container">
+            <div className="flex items-center p-4 border-b">
+                <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => navigate('/app/analysis')}
+                className="mr-3"
                 >
-                    {/* ... (UI 내용 생략) ... */}
-                </button>
-
-                {/* 2. 설문조사 추천 */}
-                <button
-                    onClick={handleSurveySelect}
-                    disabled={loading}
-                    className="w-full p-6 rounded-2xl border-2 border-gray-300 bg-white hover:bg-gray-50 active:scale-[0.99] transition-all duration-200"
-                >
-                    {/* ... (UI 내용 생략) ... */}
-                </button>
+                <ArrowLeft className="w-5 h-5" />
+                </Button>
+                <h1 className="text-lg font-semibold">카드 추천 방식 선택</h1>
             </div>
 
-            {error && (
-                <p className="text-sm text-red-500 mt-4 p-3 bg-red-50 rounded-lg w-full">{error}</p>
-            )}
+
+            {/* [수정된 부분: 내용이 중앙 정렬 및 최대 폭 제한] */}
+            <main className="flex-grow flex flex-col items-center overflow-y-auto w-full">
+                <div className="w-full max-w-md px-6 pt-8 pb-12 space-y-8">
+                    <div className="text-center space-y-2">
+                        <h1 className="text-2xl font-bold text-primary">맞춤형 카드 추천</h1>
+                        <p className="text-muted-foreground">
+                            고객님을 위한 최적의 추천 방식을 선택해 주세요.
+                        </p>
+                    </div>
+
+                    {/* 1. 마이데이터 연동 카드 (즉시 추천) */}
+                    <Card 
+                        className="w-full cursor-pointer hover:shadow-lg transition-shadow border-2 border-primary/50"
+                        onClick={handleSelectMyData}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xl font-semibold">
+                                마이데이터 기반 추천
+                            </CardTitle>
+                            <Database className="h-8 w-8 text-primary" />
+                        </CardHeader>
+                        <CardContent>
+                            <CardDescription className="text-base text-foreground">
+                                실제 소비 데이터를 분석하여<br />
+                                가장 정확하고 개인화된 카드를 즉시 추천합니다.
+                            </CardDescription>
+                            <Button 
+                                className="mt-4 w-full h-12 text-lg font-bold"
+                                onClick={handleSelectMyData}
+                            >
+                                마이데이터로 즉시 추천받기
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    <div className="relative flex justify-center w-full">
+                        <Separator className="absolute top-1/2 w-full" />
+                        <span className="bg-background px-4 text-sm font-medium text-muted-foreground z-10">
+                            또는
+                        </span>
+                    </div>
+
+                    {/* 2. 설문조사 기반 카드 (Cold Start) */}
+                    <Card 
+                        className="w-full cursor-pointer hover:shadow-lg transition-shadow"
+                        onClick={handleSelectSurvey}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xl font-semibold">
+                                간편 설문조사 추천
+                            </CardTitle>
+                            <Send className="h-8 w-8 text-secondary" />
+                        </CardHeader>
+                        <CardContent>
+                            <CardDescription className="text-base text-foreground">
+                                간단한 라이프스타일 설문을 통해<br />
+                                빠르게 AI 기반 추천을 받습니다.
+                            </CardDescription>
+                            <Button 
+                                variant="outline"
+                                className="mt-4 w-full h-12 text-lg font-bold border-secondary text-secondary hover:bg-secondary/10"
+                                onClick={handleSelectSurvey}
+                            >
+                                설문조사로 추천받기
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            </main>
         </div>
     );
 };

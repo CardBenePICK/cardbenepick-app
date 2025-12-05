@@ -151,9 +151,9 @@ const Recommendations = () => {
       <div className="p-6 space-y-6 overflow-y-auto pb-24">
 
         {/* 회원가입 유도 */}
-        <Button className="w-full btn-gradient h-11 text-white font-bold shadow-md" onClick={() => navigate('/login')}>
+        {/* <Button className="w-full btn-gradient h-11 text-white font-bold shadow-md" onClick={() => navigate('/login')}>
           가입하고 내 카드 관리하기
-        </Button>
+        </Button> */}
 
         {/* 사용자 그룹 정보 */}
         <Card className="shadow-sm border-gray-200 bg-white">
