@@ -318,9 +318,9 @@ const Wallet = () => {
 
       {/* Header */}
       <div className="flex items-center p-4 border-b bg-white justify-between relative">
-        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground absolute left-4" onClick={handleSimulateChatbot}>
+        {/* <Button variant="ghost" size="sm" className="text-xs text-muted-foreground absolute left-4" onClick={handleSimulateChatbot}>
             <Beaker className="w-4 h-4 mr-1" /> Test
-        </Button>
+        </Button> */}
         <h1 className="text-lg font-semibold flex-1 text-center">내 지갑</h1>
         <Button variant="ghost" size="icon" className="absolute right-4" onClick={() => navigate('/app/notifications')}>
           <Bell className="w-6 h-6 text-gray-700" />
