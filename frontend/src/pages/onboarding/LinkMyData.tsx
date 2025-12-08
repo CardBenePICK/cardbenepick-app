@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, CreditCard, Loader2 } from 'lucide-react'; 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils'; 
+// [수정] api 인스턴스 임포트
+import { api } from '@/lib/api';
 
 const mockCardCompanies = [
   { id: 'woori', name: '우리카드' },
@@ -71,34 +73,21 @@ const LinkMyData = () => {
     }
 
     setIsLoading(true);
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      toast({
-        title: "인증 오류",
-        description: "로그인 정보가 없습니다. 다시 로그인해주세요.",
-        variant: "destructive",
-      });
-      navigate('/login');
-      return;
-    }
+
+    // [수정] 토큰 직접 조회 로직 제거 (api 인터셉터가 처리)
+    // 로그인 안 된 상태라면 인터셉터가 감지하여 로그인 페이지로 보냅니다.
 
     try {
-      const response = await fetch('http://localhost:8000/api/assets/link', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ companies: selectedCompanies })
+      // [수정] api.post 사용
+      // 1. URL: '/assets/link' (baseURL 자동 적용)
+      // 2. Headers: Authorization 자동 주입
+      // 3. Body: 객체 그대로 전달
+      const response = await api.post('/assets/link', { 
+        companies: selectedCompanies 
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: '연동에 실패했습니다.' }));
-        throw new Error(errorData.detail);
-      }
-
-      const result = await response.json();
+      // axios 응답 데이터 추출
+      const result = response.data;
       
       toast({
         title: "연동 성공",
@@ -109,9 +98,13 @@ const LinkMyData = () => {
 
     } catch (error: any) {
       console.error("Link error:", error);
+      
+      // [수정] Axios 에러 메시지 추출 방식 적용
+      const errorMessage = error.response?.data?.detail || error.message || "알 수 없는 오류가 발생했습니다.";
+      
       toast({
         title: "연동 실패",
-        description: error.message || "알 수 없는 오류가 발생했습니다.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -120,7 +113,6 @@ const LinkMyData = () => {
   };
 
   return (
-    // [수정] 전체 화면 높이(h-screen)를 사용하고 flex-col로 배치
     <div className="app-container flex flex-col h-screen bg-white">
       {/* Header */}
       <div className="flex items-center p-4 border-b bg-white sticky top-0 z-10 shrink-0">
@@ -136,7 +128,6 @@ const LinkMyData = () => {
       </div>
 
       {/* Content - Scrollable Area */}
-      {/* [수정] flex-1과 overflow-y-auto를 줘서 이 부분만 스크롤되게 설정 */}
       <div className="flex-1 p-6 overflow-y-auto">
         <Card className="shadow-none border-none bg-white">
           <CardHeader className="text-center pb-6 pt-2">
@@ -178,7 +169,6 @@ const LinkMyData = () => {
       </div>
 
       {/* Footer Buttons - Fixed Bottom */}
-      {/* [수정] 스크롤 영역 밖으로 꺼내서 하단에 고정 */}
       <div className="p-4 border-t bg-white safe-area-bottom shrink-0 space-y-3 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
         <Button 
           className={cn(

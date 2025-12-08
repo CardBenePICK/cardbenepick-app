@@ -134,7 +134,8 @@ const RecommendationCardItem = ({ card, navigate, isBest, isAiRecommendation }: 
                     {matchReasons.map((part: string, idx: number) => (
                         <span 
                             key={idx} 
-                            className="text-[10px] px-2 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-md font-medium"
+                            // 폰트 크기 변경: text-[10px] -> text-xs
+                            className="text-xs px-2 py-1 bg-blue-50 border border-blue-100 text-blue-700 rounded-md font-medium"
                         >
                             {part}
                         </span>
@@ -144,10 +145,12 @@ const RecommendationCardItem = ({ card, navigate, isBest, isAiRecommendation }: 
                 {/* 혜택 상세 리스트 (줄글) */}
                 {benefitList.length > 0 && (
                     <div className="bg-gray-50 p-2 rounded border border-gray-100">
-                        <p className="text-[10px] font-bold text-gray-600 mb-1">주요 혜택</p>
+                        {/* 폰트 크기 변경: text-[10px] -> text-xs */}
+                        <p className="text-xs font-bold text-gray-600 mb-1">주요 혜택</p>
                         <ul className="list-disc list-inside space-y-0.5">
                             {benefitList.map((ben: string, idx: number) => (
-                                <li key={idx} className="text-[10px] text-gray-700 leading-tight truncate">
+                                // 폰트 크기 변경: text-[10px] -> text-xs
+                                <li key={idx} className="text-xs text-gray-700 leading-tight truncate">
                                     {ben}
                                 </li>
                             ))}
@@ -159,7 +162,8 @@ const RecommendationCardItem = ({ card, navigate, isBest, isAiRecommendation }: 
     } 
     
     // 일반 추천
-    return <p className="mt-1 text-gray-600 leading-relaxed">{card.detail}</p>;
+    // 폰트 크기 변경: 기본값 -> text-sm
+    return <p className="mt-1 text-sm text-gray-600 leading-relaxed">{card.detail}</p>;
   };
 
   return (
@@ -175,7 +179,8 @@ const RecommendationCardItem = ({ card, navigate, isBest, isAiRecommendation }: 
         `}
       >
         {isBest && (
-          <span className="absolute -top-3 left-4 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
+          // 폰트 크기 변경: text-[10px] -> text-xs
+          <span className="absolute -top-3 left-4 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
             BEST 추천
           </span>
         )}
@@ -183,8 +188,10 @@ const RecommendationCardItem = ({ card, navigate, isBest, isAiRecommendation }: 
         <div className="flex items-center gap-3">
           <CardThumbnail id={card.id} name={card.name} />
           <div className="text-left">
-            <h3 className="text-sm font-bold text-gray-800">{card.name}</h3>
-            <p className="text-xs text-blue-600 font-medium">
+            {/* 폰트 크기 변경: text-sm -> text-base */}
+            <h3 className="text-base font-bold text-gray-800">{card.name}</h3>
+            {/* 폰트 크기 변경: text-xs -> text-sm */}
+            <p className="text-sm text-blue-600 font-medium">
               {isAiRecommendation ? `매칭 점수: ${card.benefit}점` : `예상 혜택: ${card.benefit} 원`}
             </p>
           </div>
@@ -199,7 +206,8 @@ const RecommendationCardItem = ({ card, navigate, isBest, isAiRecommendation }: 
       </div>
 
       {isOpen && (
-        <div className="mt-1 mx-1 p-3 bg-white text-xs rounded-lg border border-gray-200 shadow-sm animate-in slide-in-from-top-1">
+        // 폰트 크기 변경: text-xs -> text-sm
+        <div className="mt-1 mx-1 p-3 bg-white text-sm rounded-lg border border-gray-200 shadow-sm animate-in slide-in-from-top-1">
           <div className="flex items-center gap-2 mb-2">
              <span className="font-bold text-gray-800">💡 {isAiRecommendation ? "추천 이유 분석" : "혜택 산출 근거"}</span>
           </div>
@@ -208,7 +216,8 @@ const RecommendationCardItem = ({ card, navigate, isBest, isAiRecommendation }: 
 
           {/* 추가 정보 (연회비/실적) - 진하게 변경 */}
           {card.desc && (
-             <div className="mt-3 pt-2 border-t border-gray-100 text-gray-700 text-[11px] font-medium flex justify-between">
+             // 폰트 크기 변경: text-[11px] -> text-xs
+             <div className="mt-3 pt-2 border-t border-gray-100 text-gray-700 text-xs font-medium flex justify-between">
                 {/* desc 문자열(연회비:... | 실적:...)을 파이프로 쪼개서 양쪽에 배치하거나 그대로 진하게 출력 */}
                 <span>{card.desc.split('|')[0]}</span>
                 <span>{card.desc.split('|')[1]}</span>
@@ -377,7 +386,8 @@ const Chat = () => {
   return (
     <div className="flex flex-col h-full"> 
       <div className="flex items-center p-4 border-b">
-        <h1 className="text-lg font-semibold flex-1 text-center">카드 추천 챗봇</h1>
+        {/* 폰트 크기 변경: text-lg -> text-xl */}
+        <h1 className="text-xl font-semibold flex-1 text-center">카드 추천 챗봇</h1>
         <Button variant="ghost" size="icon" className="absolute right-4" onClick={() => navigate('/app/notifications')}>
           <Bell className="w-6 h-6 text-gray-700" />
         </Button>
@@ -389,7 +399,8 @@ const Chat = () => {
           <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={message.type === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}>
               
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              {/* 폰트 크기 변경: text-sm -> text-base */}
+              <p className="text-base whitespace-pre-wrap">{message.content}</p>
               
               {message.data?.recommendations && (
                 <div className="mt-3 space-y-2 w-full min-w-[280px]">
@@ -433,10 +444,9 @@ const Chat = () => {
           </div>
         )}
 
-        {/* ... (Quick Menu 생략: 기존 코드와 동일) ... */}
-        {messages.length === 1 && (
+        {/* {messages.length === 1 && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground text-center">빠른 메뉴</p>
+            <p className="text-base text-muted-foreground text-center">빠른 메뉴</p>
             <div className="grid grid-cols-1 gap-2">
               <Button 
                 variant="outline" 
@@ -445,14 +455,15 @@ const Chat = () => {
               >
                 <CreditCard className="w-5 h-5 mr-3" />
                 <div className="text-left">
-                  <div className="font-medium">카드 추천받기</div>
-                  <div className="text-xs text-muted-foreground">결제할 가맹점과 금액 입력</div>
+                  <div className="font-medium text-base">카드 추천받기</div>
+                  <div className="text-sm text-muted-foreground">결제할 가맹점과 금액 입력</div>
                 </div>
               </Button>
-              {/* ... 나머지 버튼들 ... */}
+              {/* ... 나머지 버튼들 ... * /}
             </div>
           </div>
-        )}
+        )} 
+        */}
         
         <div ref={messagesEndRef} />
       </div>

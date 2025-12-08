@@ -37,7 +37,7 @@ export const useVerifyOtpMutation = () => {
           const userData = await userApi.getMe();
           login(data.token, userData); // Store 업데이트
           
-          toast({ title: "로그인 성공", description: "환영합니다!" });
+          // toast({ title: "로그인 성공", description: "환영합니다!" });
           navigate('/app/chat', { replace: true });
         } catch (error) {
            toast({ title: "오류", description: "유저 정보를 불러오는데 실패했습니다.", variant: "destructive" });
