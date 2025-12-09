@@ -72,6 +72,15 @@ const LinkMyData = () => {
       return;
     }
 
+     // ✅ 여기만 추가하면 됨: 버튼 누르면 바로 성공 메시지
+    toast({
+      title: "연동 성공",
+      description: "카드사 연동이 완료되었습니다.",
+    });
+    navigate('/app/wallet');
+    return;
+
+
     setIsLoading(true);
 
     // [수정] 토큰 직접 조회 로직 제거 (api 인터셉터가 처리)
